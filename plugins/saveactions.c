@@ -1483,6 +1483,7 @@ GtkWidget *plugin_configure(GtkDialog *dialog)
 			  "manually. The Instant Save plugin will not delete the created files.</i>"));
 		gtk_label_set_use_markup(GTK_LABEL(help_label), TRUE);
 		gtk_misc_set_alignment(GTK_MISC(help_label), 0, 0.5);
+		gtk_widget_set_margin_bottom(GTK_LABEL(help_label), 15);
 		gtk_box_pack_start(GTK_BOX(inner_vbox), help_label, FALSE, FALSE, 0);
 
 		// Persistent Untitled Documents
