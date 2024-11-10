@@ -48,7 +48,7 @@ enum
 	NOTEBOOK_PAGE_AUTOSAVE = 0,
 	NOTEBOOK_PAGE_INSTANTSAVE,
 	NOTEBOOK_PAGE_BACKUPCOPY,
-	NOTEBOOK_PAGE_PERSISTENTTEMPFILES
+	NOTEBOOK_PAGE_PERSISTENTUNTITLEDDOCS
 };
 
 static struct
@@ -57,7 +57,7 @@ static struct
 	GtkWidget *checkbox_enable_autosave_losing_focus;
 	GtkWidget *checkbox_enable_instantsave;
 	GtkWidget *checkbox_enable_backupcopy;
-	GtkWidget *checkbox_enable_persistent_temp_files;
+	GtkWidget *checkbox_enable_persistent_untitled_docs;
 
 	GtkWidget *autosave_interval_spin;
 	GtkWidget *autosave_print_msg_checkbox;
@@ -71,20 +71,20 @@ static struct
 	GtkWidget *backupcopy_entry_time;
 	GtkWidget *backupcopy_spin_dir_levels;
 
-	GtkWidget *persistent_temp_files_interval_spin;
-	GtkWidget *persistent_temp_files_entry_dir;
+	GtkWidget *persistent_untitled_docs_interval_spin;
+	GtkWidget *persistent_untitled_docs_entry_dir;
 }
 pref_widgets;
 
 
-#define PERSISTENT_TEMP_FILE_NAME_PREFIX "gtemp_"
+#define PERSISTENT_UNTITLED_DOC_FILE_NAME_PREFIX "gtemp_"
 
 
 static gboolean enable_autosave;
 static gboolean enable_autosave_losing_focus;
 static gboolean enable_instantsave;
 static gboolean enable_backupcopy;
-static gboolean enable_persistent_temp_files;
+static gboolean enable_persistent_untitled_docs;
 
 static gint autosave_interval;
 static gboolean autosave_print_msg;
@@ -98,13 +98,13 @@ static gchar *backupcopy_backup_dir; /* path to an existing directory in locale 
 static gchar *backupcopy_time_fmt;
 static gint backupcopy_dir_levels;
 
-static gint persistent_temp_files_interval_ms;
-static guint persistent_temp_files_updater_src_id = 0;
-static gchar *persistent_temp_files_target_dir;
+static gint persistent_untitled_docs_interval_ms;
+static guint persistent_untitled_docs_files_updater_src_id = 0;
+static gchar *persistent_untitled_docs_target_dir;
 
 static gchar *config_file;
 
-/* all persistent temp files should be loaded into session when session is changed
+/* all persistent untitled documents should be loaded into session when session is changed
 (so after geany launch or when project session is started/closed) */
 static gboolean session_is_changing = FALSE;
 
@@ -331,16 +331,16 @@ static void instantsave_document_new_cb(GObject *obj, GeanyDocument *doc, gpoint
 }
 
 
-static gboolean is_temp_saved_file_name(const gchar *filename)
+static gboolean is_persistent_untitled_doc_file_name(const gchar *filename)
 {
 	if (filename == NULL)
 		return FALSE;
 
-	return g_str_has_prefix(filename, PERSISTENT_TEMP_FILE_NAME_PREFIX);
+	return g_str_has_prefix(filename, PERSISTENT_UNTITLED_DOC_FILE_NAME_PREFIX);
 }
 
 
-static gboolean is_temp_saved_file(const gchar *file_path_utf8)
+static gboolean is_persistent_untitled_doc_file(const gchar *file_path_utf8)
 {
 	gchar *filename, *dirname, *file_path_locale;
 	gboolean matched;
@@ -350,7 +350,7 @@ static gboolean is_temp_saved_file(const gchar *file_path_utf8)
 
 	file_path_locale = utils_get_locale_from_utf8(file_path_utf8);
 	dirname = g_path_get_dirname(file_path_locale);
-	matched = g_str_equal(dirname, persistent_temp_files_target_dir);
+	matched = g_str_equal(dirname, persistent_untitled_docs_target_dir);
 
 	g_free(file_path_locale);
 	g_free(dirname);
@@ -359,7 +359,7 @@ static gboolean is_temp_saved_file(const gchar *file_path_utf8)
 		return FALSE;
 
 	filename = g_path_get_basename(file_path_utf8);
-	matched = is_temp_saved_file_name(filename);
+	matched = is_persistent_untitled_doc_file_name(filename);
 
 	g_free(filename);
 
@@ -367,56 +367,56 @@ static gboolean is_temp_saved_file(const gchar *file_path_utf8)
 }
 
 
-static gchar* create_new_temp_file_name(void)
+static gchar* create_new_persistent_untitled_doc_file_name(void)
 {
 	gint i;
 
 	for (i = 1; i < 1000; i++)
 	{
-		gchar *next_temp_file = g_strdup_printf("%s%c%s%d", persistent_temp_files_target_dir, 
-			G_DIR_SEPARATOR, PERSISTENT_TEMP_FILE_NAME_PREFIX, i);
-		gboolean file_exists = g_file_test(next_temp_file, G_FILE_TEST_EXISTS);
+		gchar *next_file = g_strdup_printf("%s%c%s%d", persistent_untitled_docs_target_dir, 
+			G_DIR_SEPARATOR, PERSISTENT_UNTITLED_DOC_FILE_NAME_PREFIX, i);
+		gboolean file_exists = g_file_test(next_file, G_FILE_TEST_EXISTS);
 
-		g_free(next_temp_file);
+		g_free(next_file);
 
 		if (! file_exists)
-			return g_strdup_printf("%s%d", PERSISTENT_TEMP_FILE_NAME_PREFIX, i);
+			return g_strdup_printf("%s%d", PERSISTENT_UNTITLED_DOC_FILE_NAME_PREFIX, i);
 	}
 
 	return NULL;
 }
 
 
-static void persistent_temp_files_document_new_cb(GObject *obj, GeanyDocument *doc, gpointer user_data)
+static void persistent_untitled_document_new_cb(GObject *obj, GeanyDocument *doc, gpointer user_data)
 {
 	if (doc->file_name == NULL)
 	{
-		gchar *temp_files_dir_utf8, *new_temp_file_name_utf8, *new_temp_file_path_utf8;
+		gchar *pers_docs_files_dir_utf8, *new_pers_doc_file_name_utf8, *new_pers_doc_file_path_utf8;
 
-		if (EMPTY(persistent_temp_files_target_dir))
+		if (EMPTY(persistent_untitled_docs_target_dir))
 		{
 			dialogs_show_msgbox(GTK_MESSAGE_ERROR,
-				_("Persistent temp files directory does not exist or is not writable."));
+				_("Persistent untitled documents files directory does not exist or is not writable."));
 			return;
 		}
 
-		new_temp_file_name_utf8 = create_new_temp_file_name();
+		new_pers_doc_file_name_utf8 = create_new_persistent_untitled_doc_file_name();
 
-		if (new_temp_file_name_utf8 == NULL)
+		if (new_pers_doc_file_name_utf8 == NULL)
 		{
 			return;
 		}
 
-		temp_files_dir_utf8 = utils_get_utf8_from_locale(persistent_temp_files_target_dir);
+		pers_docs_files_dir_utf8 = utils_get_utf8_from_locale(persistent_untitled_docs_target_dir);
 
-		new_temp_file_path_utf8 = g_strconcat(temp_files_dir_utf8,
-			G_DIR_SEPARATOR_S, new_temp_file_name_utf8, NULL);
+		new_pers_doc_file_path_utf8 = g_strconcat(pers_docs_files_dir_utf8,
+			G_DIR_SEPARATOR_S, new_pers_doc_file_name_utf8, NULL);
 
-		document_save_file_as(doc, new_temp_file_path_utf8);
+		document_save_file_as(doc, new_pers_doc_file_path_utf8);
 
-		g_free(new_temp_file_name_utf8);
-		g_free(temp_files_dir_utf8);
-		g_free(new_temp_file_path_utf8);
+		g_free(new_pers_doc_file_name_utf8);
+		g_free(pers_docs_files_dir_utf8);
+		g_free(new_pers_doc_file_path_utf8);
 	}
 }
 
@@ -449,7 +449,7 @@ static gboolean open_document_once_idle(gpointer p_locale_file_path)
 }
 
 
-static gint run_unsaved_dialog_for_persistent_temp_files_tab_closing(const gchar *msg, const gchar *msg2)
+static gint run_unsaved_dialog_for_persistent_untitled_docs_tab_closing(const gchar *msg, const gchar *msg2)
 {
 	GtkWidget *dialog, *button;
 	gint ret;
@@ -475,7 +475,7 @@ static gint run_unsaved_dialog_for_persistent_temp_files_tab_closing(const gchar
 }
 
 
-static void show_unsaved_dialog_for_persistent_temp_files_tab_closing(
+static void show_unsaved_dialog_for_persistent_untitled_docs_tab_closing(
 	GeanyDocument *doc, const gchar *short_filename)
 {
 	gchar *msg, *old_file_path_locale;
@@ -485,7 +485,7 @@ static void show_unsaved_dialog_for_persistent_temp_files_tab_closing(
 	msg = g_strdup_printf(_("The file '%s' is not saved."), short_filename);
 	msg2 = _("Do you want to save it before closing?");
 
-	response = run_unsaved_dialog_for_persistent_temp_files_tab_closing(msg, msg2);
+	response = run_unsaved_dialog_for_persistent_untitled_docs_tab_closing(msg, msg2);
 	g_free(msg);
 
 	switch (response)
@@ -497,7 +497,7 @@ static void show_unsaved_dialog_for_persistent_temp_files_tab_closing(
 			{
 				if (! g_str_equal(old_file_path_locale, doc->real_path))
 				{
-				 	/* remove temp file if it was saved as some other file */
+				 	/* remove untitled doc file if it was saved as some other file */
 					g_remove(old_file_path_locale);
 				}
 			}
@@ -512,7 +512,7 @@ static void show_unsaved_dialog_for_persistent_temp_files_tab_closing(
 		case GTK_RESPONSE_NO:
 			g_remove(doc->real_path);
 
-			ui_set_statusbar(TRUE, _("Temp file %s was deleted"), short_filename);
+			ui_set_statusbar(TRUE, _("Untitled document file %s was deleted"), short_filename);
 			break;
 
 		case GTK_RESPONSE_CANCEL:
@@ -523,13 +523,13 @@ static void show_unsaved_dialog_for_persistent_temp_files_tab_closing(
 }
 
 
-static void persistent_temp_files_document_before_save_as_cb(GObject *obj, GeanyDocument *doc, gpointer user_data)
+static void persistent_untitled_document_before_save_as_cb(GObject *obj, GeanyDocument *doc, gpointer user_data)
 {
-	if (enable_persistent_temp_files)
+	if (enable_persistent_untitled_docs)
 	{
 		gchar *old_file_path_utf8 = DOC_FILENAME(doc);
 
-		if (is_temp_saved_file(old_file_path_utf8))
+		if (is_persistent_untitled_doc_file(old_file_path_utf8))
 		{
 			/* we have to store old filename inside document data to be able to somehow
 			pass it to document-save callback that is called directly after this one */
@@ -540,7 +540,7 @@ static void persistent_temp_files_document_before_save_as_cb(GObject *obj, Geany
 }
 
 
-static void persistent_temp_files_document_save_cb(GObject *obj, GeanyDocument *doc, gpointer user_data)
+static void persistent_untitled_document_save_cb(GObject *obj, GeanyDocument *doc, gpointer user_data)
 {
 	gchar *new_file_path_utf8, *old_file_path_utf8;
 
@@ -549,16 +549,16 @@ static void persistent_temp_files_document_save_cb(GObject *obj, GeanyDocument *
 
 	if (old_file_path_utf8 != NULL)
 	{
-		if (is_temp_saved_file(old_file_path_utf8) 
+		if (is_persistent_untitled_doc_file(old_file_path_utf8) 
 			&& ! g_str_equal(old_file_path_utf8, new_file_path_utf8))
 		{
-			/* remove temp file if it was saved as some other file */
+			/* remove untitled doc file if it was saved as some other file */
 			gchar *locale_old_file_path = utils_get_locale_from_utf8(old_file_path_utf8);
 			g_remove(locale_old_file_path);
 
 			g_free(locale_old_file_path);
 
-			ui_set_statusbar(TRUE, _("Temp file %s was deleted"), old_file_path_utf8);
+			ui_set_statusbar(TRUE, _("Untitled document file %s was deleted"), old_file_path_utf8);
 		}
 
 		plugin_set_document_data(geany_plugin, doc, "file-name-before-save-as", NULL); /* clear value */
@@ -566,27 +566,27 @@ static void persistent_temp_files_document_save_cb(GObject *obj, GeanyDocument *
 }
 
 
-static void load_all_temp_files_into_editor(void)
+static void load_all_persistent_untitled_doc_files_into_editor(void)
 {
 	GDir *dir;
 	GError *error = NULL;
 	const gchar *filename;
 
-	dir = g_dir_open(persistent_temp_files_target_dir, 0, &error);
+	dir = g_dir_open(persistent_untitled_docs_target_dir, 0, &error);
 	if (dir == NULL)
 	{
-		dialogs_show_msgbox(GTK_MESSAGE_ERROR, _("Persistent temp files directory not found"));
+		dialogs_show_msgbox(GTK_MESSAGE_ERROR, _("Persistent untitled documents files directory not found"));
 		return;
 	}
 
 	foreach_dir(filename, dir)
 	{
-		if (is_temp_saved_file_name(filename))
+		if (is_persistent_untitled_doc_file_name(filename))
 		{
 			gchar *locale_file_path, *file_path_utf8;
 			GeanyDocument *doc;
 
-			locale_file_path = g_build_path(G_DIR_SEPARATOR_S, persistent_temp_files_target_dir, filename, NULL);
+			locale_file_path = g_build_path(G_DIR_SEPARATOR_S, persistent_untitled_docs_target_dir, filename, NULL);
 			file_path_utf8 = utils_get_utf8_from_locale(locale_file_path);
 			doc = document_find_by_filename(file_path_utf8);
 
@@ -598,7 +598,7 @@ static void load_all_temp_files_into_editor(void)
 			g_free(locale_file_path);
 
 			/* we are closing (and thus deleting) empty documents here - mainly in order to avoid accumulation of 
-			empty temp files, that happens when new tab with empty document is created at new (empty) session start. 
+			empty untitled document files, that happens when new tab with empty document is created at new (empty) session start. 
 			Note: we cannot 'close' newly-created empty document from 'document-activate' callback, 
 			so this is a perfect place for it */
 			if (doc != NULL && document_is_empty(doc))
@@ -614,13 +614,21 @@ static void load_all_temp_files_into_editor(void)
 }
 
 
-static gboolean load_all_temp_files_idle(gpointer data)
+static gboolean load_all_persistent_untitled_doc_files_idle(gpointer data)
+{
+	load_all_persistent_untitled_doc_files_into_editor();
+
+	return FALSE;
+}
+
+
+static gboolean load_all_persistent_untitled_doc_files_and_reopen_current_idle(gpointer data)
 {
 	/* remember and re-open document from originaly focused tab 
-	(after we mess selected tab with re-loaded temp files) */
+	(after we mess selected tab with re-loaded untitled doc files) */
 	GeanyDocument *current_doc = document_get_current();
 
-	load_all_temp_files_into_editor();
+	load_all_persistent_untitled_doc_files_into_editor();
 
 	if (current_doc != NULL && current_doc->real_path != NULL)
 		document_open_file(current_doc->real_path, FALSE, NULL, NULL);
@@ -663,9 +671,9 @@ static gboolean on_document_focus_out(GObject *object, GeanyEditor *editor,
 	if (nt->nmhdr.code == SCN_FOCUSOUT
 		&& doc->file_name != NULL)
 	{
-		if (enable_autosave_losing_focus || (enable_persistent_temp_files
+		if (enable_autosave_losing_focus || (enable_persistent_untitled_docs
 											&& doc->real_path != NULL
-											&& is_temp_saved_file(doc->file_name)))
+											&& is_persistent_untitled_doc_file(doc->file_name)))
 		{
 			plugin_idle_add(geany_plugin, save_on_focus_out_idle, doc);
 		}
@@ -680,8 +688,8 @@ static void on_document_save(GObject *obj, GeanyDocument *doc, gpointer user_dat
 	if (enable_backupcopy)
 		backupcopy_document_save_cb(obj, doc, user_data);
 
-	if (enable_persistent_temp_files)
-		persistent_temp_files_document_save_cb(obj, doc, user_data);
+	if (enable_persistent_untitled_docs)
+		persistent_untitled_document_save_cb(obj, doc, user_data);
 }
 
 
@@ -690,8 +698,8 @@ static void on_document_new(GObject *obj, GeanyDocument *doc, gpointer user_data
 	if (enable_instantsave)
 		instantsave_document_new_cb(obj, doc, user_data);
 
-	if (enable_persistent_temp_files)
-		persistent_temp_files_document_new_cb(obj, doc, user_data);
+	if (enable_persistent_untitled_docs)
+		persistent_untitled_document_new_cb(obj, doc, user_data);
 }
 
 
@@ -715,34 +723,26 @@ static void on_document_activate(G_GNUC_UNUSED GObject *obj, GeanyDocument *doc,
 	{
 		session_is_changing = FALSE;
 
-		if (enable_persistent_temp_files)
-			plugin_idle_add(geany_plugin, load_all_temp_files_idle, NULL);
+		if (enable_persistent_untitled_docs)
+			plugin_idle_add(geany_plugin, load_all_persistent_untitled_doc_files_and_reopen_current_idle, NULL);
 	}
 }
 
 
-static gboolean persistent_temp_files_document_close_idle(gpointer data)
+static void persistent_untitled_document_close_cb(GObject *obj, GeanyDocument *doc, gpointer user_data)
 {
-	load_all_temp_files_into_editor();
-
-	return FALSE;
-}
-
-
-static void persistent_temp_files_document_close_cb(GObject *obj, GeanyDocument *doc, gpointer user_data)
-{
-	if (! enable_persistent_temp_files)
+	if (! enable_persistent_untitled_docs)
 	{
 		return;
 	}
 
-	if (! geany_is_closing_all_documents() && doc->real_path != NULL && is_temp_saved_file(doc->file_name))
+	if (! geany_is_closing_all_documents() && doc->real_path != NULL && is_persistent_untitled_doc_file(doc->file_name))
 	{
 		gchar *short_filename = document_get_basename_for_display(doc, -1);
 
 		if (! document_is_empty(doc))
 		{
-			show_unsaved_dialog_for_persistent_temp_files_tab_closing(
+			show_unsaved_dialog_for_persistent_untitled_docs_tab_closing(
 				doc,
 				short_filename
 			);
@@ -751,7 +751,7 @@ static void persistent_temp_files_document_close_cb(GObject *obj, GeanyDocument 
 		{
 			g_remove(doc->real_path);
 
-			ui_set_statusbar(TRUE, _("Empty temp file %s was deleted"), short_filename);
+			ui_set_statusbar(TRUE, _("Empty untitled document file %s was deleted"), short_filename);
 		}
 
 		g_free(short_filename);
@@ -759,8 +759,8 @@ static void persistent_temp_files_document_close_cb(GObject *obj, GeanyDocument 
 	}
 	else if (geany_is_closing_all_documents() && count_opened_notebook_tabs() == 1)
 	{
-		/* if this is a last file being closed during 'close all' - reopen all temp files to keep them in editor */
-		plugin_idle_add(geany_plugin, persistent_temp_files_document_close_idle, NULL);
+		/* if this is a last file being closed during 'close all' - reopen all untitled doc files to keep them in editor */
+		plugin_idle_add(geany_plugin, load_all_persistent_untitled_doc_files_idle, NULL);
 	}
 }
 
@@ -768,8 +768,8 @@ static void persistent_temp_files_document_close_cb(GObject *obj, GeanyDocument 
 PluginCallback plugin_callbacks[] =
 {
 	{ "document-new", (GCallback) &on_document_new, FALSE, NULL },
-	{ "document-close", (GCallback) &persistent_temp_files_document_close_cb, FALSE, NULL },
-	{ "document-before-save-as", (GCallback) &persistent_temp_files_document_before_save_as_cb, FALSE, NULL },
+	{ "document-close", (GCallback) &persistent_untitled_document_close_cb, FALSE, NULL },
+	{ "document-before-save-as", (GCallback) &persistent_untitled_document_before_save_as_cb, FALSE, NULL },
 	{ "document-save", (GCallback) &on_document_save, FALSE, NULL },
 	{ "document-activate", (GCallback) &on_document_activate, FALSE, NULL },
 	{ "editor-notify", (GCallback) &on_document_focus_out, FALSE, NULL },
@@ -828,7 +828,7 @@ static void autosave_set_timeout(void)
 }
 
 
-static gboolean persistent_temp_files_update(gpointer data)
+static gboolean persistent_untitled_docs_files_update(gpointer data)
 {
 	gint i, max = count_opened_notebook_tabs();
 
@@ -836,7 +836,7 @@ static gboolean persistent_temp_files_update(gpointer data)
 	{
 		GeanyDocument *doc = document_get_from_page(i);
 
-		if (doc->real_path != NULL && is_temp_saved_file(doc->file_name))
+		if (doc->real_path != NULL && is_persistent_untitled_doc_file(doc->file_name))
 		{
 			document_save_file(doc, FALSE);
 		}
@@ -846,17 +846,17 @@ static gboolean persistent_temp_files_update(gpointer data)
 }
 
 
-static void persistent_temp_files_updater_set_timeout(void)
+static void persistent_untitled_docs_files_updater_set_timeout(void)
 {
-	if (persistent_temp_files_updater_src_id != 0)
-		g_source_remove(persistent_temp_files_updater_src_id);
+	if (persistent_untitled_docs_files_updater_src_id != 0)
+		g_source_remove(persistent_untitled_docs_files_updater_src_id);
 
-	if (! enable_persistent_temp_files)
+	if (! enable_persistent_untitled_docs)
 		return;
 
-	persistent_temp_files_updater_src_id = g_timeout_add(
-		persistent_temp_files_interval_ms,
-		(GSourceFunc) persistent_temp_files_update,
+	persistent_untitled_docs_files_updater_src_id = g_timeout_add(
+		persistent_untitled_docs_interval_ms,
+		(GSourceFunc) persistent_untitled_docs_files_update,
 		NULL
 	);
 }
@@ -902,8 +902,8 @@ void plugin_init(GeanyData *data)
 		config, "saveactions", "enable_instantsave", FALSE);
 	enable_backupcopy = utils_get_setting_boolean(
 		config, "saveactions", "enable_backupcopy", FALSE);
-	enable_persistent_temp_files = utils_get_setting_boolean(
-		config, "saveactions", "enable_persistent_temp_files", FALSE);
+	enable_persistent_untitled_docs = utils_get_setting_boolean(
+		config, "saveactions", "enable_persistent_untitled_documents", FALSE);
 
 	instantsave_default_ft = utils_get_setting_string(config, "instantsave", "default_ft",
 		filetypes[GEANY_FILETYPES_NONE]->name);
@@ -925,49 +925,49 @@ void plugin_init(GeanyData *data)
 	store_target_directory(tmp, &backupcopy_backup_dir);
 	g_free(tmp);
 
-	/* START Persistent temp files */
-	if (utils_get_setting_string(config, "persistent_temp_files", "target_dir", NULL) == NULL)
+	/* START Persistent untitled documents */
+	if (utils_get_setting_string(config, "persistent_untitled_documents", "target_dir", NULL) == NULL)
 	{
 		/* Set default target dir */
-		gchar *configdir_utf8, *default_persistent_temp_files_dir_utf8;
+		gchar *configdir_utf8, *default_persistent_untitled_docs_dir_utf8;
 
 		configdir_utf8 = utils_get_utf8_from_locale(geany->app->configdir);
-		default_persistent_temp_files_dir_utf8 = g_strconcat(configdir_utf8, G_DIR_SEPARATOR_S, "plugins",
-			G_DIR_SEPARATOR_S, "saveactions", G_DIR_SEPARATOR_S, "persistent_temp_files", NULL);
+		default_persistent_untitled_docs_dir_utf8 = g_strconcat(configdir_utf8, G_DIR_SEPARATOR_S, "plugins",
+			G_DIR_SEPARATOR_S, "saveactions", G_DIR_SEPARATOR_S, "persistent_untitled_documents", NULL);
 		g_free(configdir_utf8);
 
-		g_key_file_set_string(config, "persistent_temp_files", "target_dir", 
-			default_persistent_temp_files_dir_utf8);
+		g_key_file_set_string(config, "persistent_untitled_documents", "target_dir", 
+			default_persistent_untitled_docs_dir_utf8);
 
-		tmp = utils_get_locale_from_utf8(default_persistent_temp_files_dir_utf8);
-		g_free(default_persistent_temp_files_dir_utf8);
+		tmp = utils_get_locale_from_utf8(default_persistent_untitled_docs_dir_utf8);
+		g_free(default_persistent_untitled_docs_dir_utf8);
 
 		utils_mkdir(tmp, TRUE);
 		g_free(tmp);
 	}
 
-	tmp = utils_get_setting_string(config, "persistent_temp_files", "target_dir", NULL);
+	tmp = utils_get_setting_string(config, "persistent_untitled_documents", "target_dir", NULL);
 	SETPTR(tmp, utils_get_locale_from_utf8(tmp));
 	/* Set target dir variable with value from config, regardless if dir is valid or not */
-	SETPTR(persistent_temp_files_target_dir, g_strdup(tmp));
+	SETPTR(persistent_untitled_docs_target_dir, g_strdup(tmp));
 
-	if (enable_persistent_temp_files && ! is_directory_accessible(tmp))
+	if (enable_persistent_untitled_docs && ! is_directory_accessible(tmp))
 	{
 		/* switch functionality off, so invalid target directory cannot be actually used */
-		enable_persistent_temp_files = FALSE;
-		g_key_file_set_boolean(config, "saveactions", "enable_persistent_temp_files", FALSE);
-		gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(pref_widgets.checkbox_enable_persistent_temp_files), FALSE);
+		enable_persistent_untitled_docs = FALSE;
+		g_key_file_set_boolean(config, "saveactions", "enable_persistent_untitled_documents", FALSE);
+		gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(pref_widgets.checkbox_enable_persistent_untitled_docs), FALSE);
 
-		ui_set_statusbar(TRUE, "ERROR: persistent temp files disabled - bad target directory '%s'", tmp);
+		ui_set_statusbar(TRUE, "ERROR: persistent untitled documents disabled - bad target directory '%s'", tmp);
 	}
 	g_free(tmp);
 
-	persistent_temp_files_updater_src_id = 0; /* mark as invalid */
-	persistent_temp_files_interval_ms = utils_get_setting_integer(config,
-		"persistent_temp_files", "interval_ms", 1000);
+	persistent_untitled_docs_files_updater_src_id = 0; /* mark as invalid */
+	persistent_untitled_docs_interval_ms = utils_get_setting_integer(config,
+		"persistent_untitled_documents", "interval_ms", 1000);
 
-	persistent_temp_files_updater_set_timeout();
-	/* END Persistent temp files */
+	persistent_untitled_docs_files_updater_set_timeout();
+	/* END Persistent untitled documents */
 
 
 	session_is_changing = TRUE;
@@ -1039,7 +1039,7 @@ static void configure_response_cb(GtkDialog *dialog, gint response, G_GNUC_UNUSE
 	if (response == GTK_RESPONSE_OK || response == GTK_RESPONSE_APPLY)
 	{
 		GKeyFile *config = g_key_file_new();
-		const gchar *backupcopy_text_dir, *instantsave_text_dir, *persistent_temp_files_text_dir, *text_time;
+		const gchar *backupcopy_text_dir, *instantsave_text_dir, *persistent_untitled_docs_text_dir, *text_time;
 
 		enable_autosave = gtk_toggle_button_get_active(
 			GTK_TOGGLE_BUTTON(pref_widgets.checkbox_enable_autosave));
@@ -1067,9 +1067,9 @@ static void configure_response_cb(GtkDialog *dialog, gint response, G_GNUC_UNUSE
 		backupcopy_dir_levels = gtk_spin_button_get_value_as_int(
 			GTK_SPIN_BUTTON(pref_widgets.backupcopy_spin_dir_levels));
 
-		persistent_temp_files_interval_ms = gtk_spin_button_get_value_as_int(
-			GTK_SPIN_BUTTON(pref_widgets.persistent_temp_files_interval_spin));
-		persistent_temp_files_text_dir = gtk_entry_get_text(GTK_ENTRY(pref_widgets.persistent_temp_files_entry_dir));
+		persistent_untitled_docs_interval_ms = gtk_spin_button_get_value_as_int(
+			GTK_SPIN_BUTTON(pref_widgets.persistent_untitled_docs_interval_spin));
+		persistent_untitled_docs_text_dir = gtk_entry_get_text(GTK_ENTRY(pref_widgets.persistent_untitled_docs_entry_dir));
 
 
 		g_key_file_load_from_file(config, config_file, G_KEY_FILE_NONE, NULL);
@@ -1120,28 +1120,28 @@ static void configure_response_cb(GtkDialog *dialog, gint response, G_GNUC_UNUSE
 			}
 		}
 
-		g_key_file_set_integer(config, "persistent_temp_files", "interval_ms", persistent_temp_files_interval_ms);
+		g_key_file_set_integer(config, "persistent_untitled_documents", "interval_ms", persistent_untitled_docs_interval_ms);
 		/* If toggle button (not boolean variable, which is not updated yet) is active - we check for target dir validity */
-		if (gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(pref_widgets.checkbox_enable_persistent_temp_files)))
+		if (gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(pref_widgets.checkbox_enable_persistent_untitled_docs)))
 		{
-			if (!EMPTY(persistent_temp_files_text_dir) 
-					&& g_str_has_suffix(persistent_temp_files_text_dir, G_DIR_SEPARATOR_S))
+			if (!EMPTY(persistent_untitled_docs_text_dir) 
+					&& g_str_has_suffix(persistent_untitled_docs_text_dir, G_DIR_SEPARATOR_S))
 			{
 				/* If target dir path ends with dir separator - we consider it invalid */
 				g_signal_stop_emission_by_name(dialog, "response");
 
 				dialogs_show_msgbox(GTK_MESSAGE_ERROR,
-						_("Please remove path separator (%s) from persistent temp files directory path"), 
+						_("Please remove path separator (%s) from persistent untitled documents directory path"), 
 							G_DIR_SEPARATOR_S);
 			}
-			else if (!EMPTY(persistent_temp_files_text_dir) && store_target_directory(
-					persistent_temp_files_text_dir, &persistent_temp_files_target_dir))
+			else if (!EMPTY(persistent_untitled_docs_text_dir) && store_target_directory(
+					persistent_untitled_docs_text_dir, &persistent_untitled_docs_target_dir))
 			{
 				/* If target dir is valid - we save both itself and "enabled" feature toggle into config file */
-				g_key_file_set_string(config, "persistent_temp_files", "target_dir", persistent_temp_files_text_dir);
+				g_key_file_set_string(config, "persistent_untitled_documents", "target_dir", persistent_untitled_docs_text_dir);
 				
-				enable_persistent_temp_files = TRUE;
-				g_key_file_set_boolean(config, "saveactions", "enable_persistent_temp_files", TRUE);
+				enable_persistent_untitled_docs = TRUE;
+				g_key_file_set_boolean(config, "saveactions", "enable_persistent_untitled_documents", TRUE);
 			}
 			else
 			{
@@ -1150,14 +1150,14 @@ static void configure_response_cb(GtkDialog *dialog, gint response, G_GNUC_UNUSE
 				g_signal_stop_emission_by_name(dialog, "response");
 
 				dialogs_show_msgbox(GTK_MESSAGE_ERROR,
-						_("Persistent temp files directory does not exist or is not writable."));
+						_("Persistent untitled documents directory does not exist or is not writable."));
 			}
 		} else {
-			enable_persistent_temp_files = FALSE;
-			g_key_file_set_boolean(config, "saveactions", "enable_persistent_temp_files", FALSE);
+			enable_persistent_untitled_docs = FALSE;
+			g_key_file_set_boolean(config, "saveactions", "enable_persistent_untitled_documents", FALSE);
 		}
 
-		persistent_temp_files_updater_set_timeout();
+		persistent_untitled_docs_files_updater_set_timeout();
 
 		if (enable_autosave)
 			autosave_set_timeout(); /* apply the changes */
@@ -1189,9 +1189,9 @@ static void checkbox_toggled_cb(GtkToggleButton *tb, gpointer data)
 			gtk_widget_set_sensitive(pref_widgets.instantsave_ft_combo, enable);
 			if (enable)
 			{
-				/* 'Instantsave' and 'Persistent temp files' are mutually exclusive */
+				/* 'Instantsave' and 'Persistent untitled documents' are mutually exclusive */
 				gtk_toggle_button_set_active(
-					GTK_TOGGLE_BUTTON(pref_widgets.checkbox_enable_persistent_temp_files), FALSE);
+					GTK_TOGGLE_BUTTON(pref_widgets.checkbox_enable_persistent_untitled_docs), FALSE);
 			}
 			break;
 		}
@@ -1202,13 +1202,13 @@ static void checkbox_toggled_cb(GtkToggleButton *tb, gpointer data)
 			gtk_widget_set_sensitive(pref_widgets.backupcopy_spin_dir_levels, enable);
 			break;
 		}
-		case NOTEBOOK_PAGE_PERSISTENTTEMPFILES:
+		case NOTEBOOK_PAGE_PERSISTENTUNTITLEDDOCS:
 		{
-			gtk_widget_set_sensitive(pref_widgets.persistent_temp_files_entry_dir, enable);
-			gtk_widget_set_sensitive(pref_widgets.persistent_temp_files_interval_spin, enable);
+			gtk_widget_set_sensitive(pref_widgets.persistent_untitled_docs_entry_dir, enable);
+			gtk_widget_set_sensitive(pref_widgets.persistent_untitled_docs_interval_spin, enable);
 			if (enable)
 			{
-				/* 'Instantsave' and 'Persistent temp files' are mutually exclusive */
+				/* 'Instantsave' and 'Persistent untitled documents' are mutually exclusive */
 				gtk_toggle_button_set_active(
 					GTK_TOGGLE_BUTTON(pref_widgets.checkbox_enable_instantsave), FALSE);
 			}
@@ -1443,7 +1443,7 @@ GtkWidget *plugin_configure(GtkDialog *dialog)
 		gtk_box_pack_start(GTK_BOX(inner_vbox), hbox, FALSE, FALSE, 7);
 	}
 	/*
-	 * Persistent Temp Files
+	 * Persistent Untitled Documents
 	 */
 	{
 		GtkWidget *hbox, *spin, *entry_dir, *button, *image;
@@ -1453,24 +1453,24 @@ GtkWidget *plugin_configure(GtkDialog *dialog)
 		gtk_container_set_border_width(GTK_CONTAINER(inner_vbox), 5);
 		gtk_box_pack_start(GTK_BOX(notebook_vbox), inner_vbox, TRUE, TRUE, 5);
 		gtk_notebook_insert_page(GTK_NOTEBOOK(notebook),
-			notebook_vbox, gtk_label_new(_("Persistent Temp Files")), NOTEBOOK_PAGE_PERSISTENTTEMPFILES);
+			notebook_vbox, gtk_label_new(_("Persistent Untitled Documents")), NOTEBOOK_PAGE_PERSISTENTUNTITLEDDOCS);
 
 		checkbox_enable = gtk_check_button_new_with_mnemonic(_("_Enable"));
 		gtk_button_set_focus_on_click(GTK_BUTTON(checkbox_enable), FALSE);
-		pref_widgets.checkbox_enable_persistent_temp_files = checkbox_enable;
+		pref_widgets.checkbox_enable_persistent_untitled_docs = checkbox_enable;
 		gtk_box_pack_start(GTK_BOX(inner_vbox), checkbox_enable, FALSE, FALSE, 6);
-		gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(checkbox_enable), enable_persistent_temp_files);
+		gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(checkbox_enable), enable_persistent_untitled_docs);
 		g_signal_connect(checkbox_enable, "toggled",
-			G_CALLBACK(checkbox_toggled_cb), GINT_TO_POINTER(NOTEBOOK_PAGE_PERSISTENTTEMPFILES));
+			G_CALLBACK(checkbox_toggled_cb), GINT_TO_POINTER(NOTEBOOK_PAGE_PERSISTENTUNTITLEDDOCS));
 
-		label = gtk_label_new_with_mnemonic(_("_Directory to save persistent temp files in:"));
+		label = gtk_label_new_with_mnemonic(_("_Directory to save persistent untitled documents in:"));
 		gtk_misc_set_alignment(GTK_MISC(label), 0, 0.5);
 		gtk_box_pack_start(GTK_BOX(inner_vbox), label, FALSE, FALSE, 0);
 
-		pref_widgets.persistent_temp_files_entry_dir = entry_dir = gtk_entry_new();
+		pref_widgets.persistent_untitled_docs_entry_dir = entry_dir = gtk_entry_new();
 		gtk_label_set_mnemonic_widget(GTK_LABEL(label), entry_dir);
-		if (!EMPTY(persistent_temp_files_target_dir))
-			gtk_entry_set_text(GTK_ENTRY(entry_dir), persistent_temp_files_target_dir);
+		if (!EMPTY(persistent_untitled_docs_target_dir))
+			gtk_entry_set_text(GTK_ENTRY(entry_dir), persistent_untitled_docs_target_dir);
 
 		button = gtk_button_new();
 		g_signal_connect(button, "clicked",
@@ -1486,15 +1486,15 @@ GtkWidget *plugin_configure(GtkDialog *dialog)
 		gtk_box_pack_start(GTK_BOX(inner_vbox), hbox, FALSE, FALSE, 0);
 
 		hbox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 1);
-		label = gtk_label_new_with_mnemonic(_("Temp files save _interval:"));
+		label = gtk_label_new_with_mnemonic(_("Untitled document save _interval:"));
 		gtk_misc_set_alignment(GTK_MISC(label), 0, 0.5);
 		gtk_box_pack_start(GTK_BOX(hbox), label, TRUE, TRUE, 0);
 
 		gtk_box_pack_start(GTK_BOX(inner_vbox), hbox, FALSE, FALSE, 5);
 
 		hbox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 1);
-		pref_widgets.persistent_temp_files_interval_spin = spin = gtk_spin_button_new_with_range(1, 600000, 100);
-		gtk_spin_button_set_value(GTK_SPIN_BUTTON(spin), persistent_temp_files_interval_ms);
+		pref_widgets.persistent_untitled_docs_interval_spin = spin = gtk_spin_button_new_with_range(1, 600000, 100);
+		gtk_spin_button_set_value(GTK_SPIN_BUTTON(spin), persistent_untitled_docs_interval_ms);
 		gtk_label_set_mnemonic_widget(GTK_LABEL(label), spin);
 
 		label = gtk_label_new(_("milliseconds"));
@@ -1509,7 +1509,7 @@ GtkWidget *plugin_configure(GtkDialog *dialog)
 	g_signal_emit_by_name(pref_widgets.checkbox_enable_autosave, "toggled");
 	g_signal_emit_by_name(pref_widgets.checkbox_enable_instantsave, "toggled");
 	g_signal_emit_by_name(pref_widgets.checkbox_enable_backupcopy, "toggled");
-	g_signal_emit_by_name(pref_widgets.checkbox_enable_persistent_temp_files, "toggled");
+	g_signal_emit_by_name(pref_widgets.checkbox_enable_persistent_untitled_docs, "toggled");
 
 	gtk_widget_show_all(vbox);
 	g_signal_connect(dialog, "response", G_CALLBACK(configure_response_cb), NULL);
@@ -1529,10 +1529,10 @@ void plugin_cleanup(void)
 	g_free(backupcopy_backup_dir);
 	g_free(backupcopy_time_fmt);
 
-	if (persistent_temp_files_updater_src_id != 0)
-		g_source_remove(persistent_temp_files_updater_src_id);
+	if (persistent_untitled_docs_files_updater_src_id != 0)
+		g_source_remove(persistent_untitled_docs_files_updater_src_id);
 
-	g_free(persistent_temp_files_target_dir);
+	g_free(persistent_untitled_docs_target_dir);
 
 	g_free(config_file);
 }
