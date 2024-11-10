@@ -46,7 +46,6 @@ PLUGIN_SET_INFO(_("Save Actions"), _("This plugin provides different actions rel
 enum
 {
 	NOTEBOOK_PAGE_AUTOSAVE = 0,
-	NOTEBOOK_PAGE_INSTANTSAVE,
 	NOTEBOOK_PAGE_BACKUPCOPY,
 	NOTEBOOK_PAGE_UNTITLEDDOCUMENTSAVE
 };
@@ -62,7 +61,6 @@ static struct
 {
 	GtkWidget *checkbox_enable_autosave;
 	GtkWidget *checkbox_enable_autosave_losing_focus;
-	GtkWidget *checkbox_enable_instantsave;
 	GtkWidget *checkbox_enable_backupcopy;
 
 	GtkWidget *autosave_interval_spin;
@@ -70,12 +68,12 @@ static struct
 	GtkWidget *autosave_save_all_radio1;
 	GtkWidget *autosave_save_all_radio2;
 
-	GtkWidget *instantsave_ft_combo;
-	GtkWidget *instantsave_entry_dir;
-
 	GtkWidget *backupcopy_entry_dir;
 	GtkWidget *backupcopy_entry_time;
 	GtkWidget *backupcopy_spin_dir_levels;
+
+	GtkWidget *instantsave_ft_combo;
+	GtkWidget *instantsave_entry_dir;
 
 	GtkWidget *untitled_document_save_disabled_radio;
 	GtkWidget *untitled_document_save_instantsave_radio;
@@ -1058,7 +1056,7 @@ static void configure_response_cb(GtkDialog *dialog, gint response, G_GNUC_UNUSE
 		enable_autosave_losing_focus = gtk_toggle_button_get_active(
 			GTK_TOGGLE_BUTTON(pref_widgets.checkbox_enable_autosave_losing_focus));
 		enable_instantsave = gtk_toggle_button_get_active(
-			GTK_TOGGLE_BUTTON(pref_widgets.checkbox_enable_instantsave));
+			GTK_TOGGLE_BUTTON(pref_widgets.untitled_document_save_instantsave_radio));
 		enable_backupcopy = gtk_toggle_button_get_active(
 			GTK_TOGGLE_BUTTON(pref_widgets.checkbox_enable_backupcopy));
 
@@ -1197,11 +1195,6 @@ static void checkbox_toggled_cb(GtkToggleButton *tb, gpointer data)
 			gtk_widget_set_sensitive(pref_widgets.autosave_save_all_radio2, enable);
 			break;
 		}
-		case NOTEBOOK_PAGE_INSTANTSAVE:
-		{
-			gtk_widget_set_sensitive(pref_widgets.instantsave_ft_combo, enable);
-			break;
-		}
 		case NOTEBOOK_PAGE_BACKUPCOPY:
 		{
 			gtk_widget_set_sensitive(pref_widgets.backupcopy_entry_dir, enable);
@@ -1335,82 +1328,6 @@ GtkWidget *plugin_configure(GtkDialog *dialog)
 		gtk_container_add(GTK_CONTAINER(inner_vbox), radio2);
 	}
 	/*
-	 * Instant Save
-	 */
-	{
-		GtkWidget *combo, *hbox, *entry_dir, *button, *image, *help_label;
-		guint i;
-		const GSList *node;
-		gchar *entry_dir_label_text;
-
-		notebook_vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 2);
-		inner_vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 5);
-		gtk_container_set_border_width(GTK_CONTAINER(inner_vbox), 5);
-		gtk_box_pack_start(GTK_BOX(notebook_vbox), inner_vbox, TRUE, TRUE, 5);
-		gtk_notebook_insert_page(GTK_NOTEBOOK(notebook),
-			notebook_vbox, gtk_label_new(_("Instant Save")), NOTEBOOK_PAGE_INSTANTSAVE);
-
-		checkbox_enable = gtk_check_button_new_with_mnemonic(_("_Enable"));
-		pref_widgets.checkbox_enable_instantsave = checkbox_enable;
-		gtk_button_set_focus_on_click(GTK_BUTTON(checkbox_enable), FALSE);
-		gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(checkbox_enable), enable_instantsave);
-		gtk_box_pack_start(GTK_BOX(inner_vbox), checkbox_enable, FALSE, FALSE, 6);
-		g_signal_connect(checkbox_enable, "toggled",
-			G_CALLBACK(checkbox_toggled_cb), GINT_TO_POINTER(NOTEBOOK_PAGE_INSTANTSAVE));
-
-		label = gtk_label_new_with_mnemonic(_("Default _filetype to use for new files:"));
-		gtk_misc_set_alignment(GTK_MISC(label), 0, 0.5);
-		gtk_box_pack_start(GTK_BOX(inner_vbox), label, FALSE, FALSE, 0);
-
-		pref_widgets.instantsave_ft_combo = combo = gtk_combo_box_text_new();
-		i = 0;
-		foreach_slist(node, filetypes_get_sorted_by_name())
-		{
-			GeanyFiletype *ft = node->data;
-
-			gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(combo), ft->name);
-
-			if (utils_str_equal(ft->name, instantsave_default_ft))
-				gtk_combo_box_set_active(GTK_COMBO_BOX(combo), i);
-			i++;
-		}
-		gtk_combo_box_set_wrap_width(GTK_COMBO_BOX(combo), 3);
-		gtk_label_set_mnemonic_widget(GTK_LABEL(label), combo);
-		gtk_box_pack_start(GTK_BOX(inner_vbox), combo, FALSE, FALSE, 0);
-
-		entry_dir_label_text = g_strdup_printf(
-			_("_Directory to save files in (leave empty to use the default: %s):"), g_get_tmp_dir());
-		label = gtk_label_new_with_mnemonic(entry_dir_label_text);
-		gtk_misc_set_alignment(GTK_MISC(label), 0, 0.5);
-		gtk_box_pack_start(GTK_BOX(inner_vbox), label, FALSE, FALSE, 0);
-		g_free(entry_dir_label_text);
-
-		pref_widgets.instantsave_entry_dir = entry_dir = gtk_entry_new();
-		gtk_label_set_mnemonic_widget(GTK_LABEL(label), entry_dir);
-		if (!EMPTY(instantsave_target_dir))
-			gtk_entry_set_text(GTK_ENTRY(entry_dir), instantsave_target_dir);
-
-		button = gtk_button_new();
-		g_signal_connect(button, "clicked",
-			G_CALLBACK(target_directory_button_clicked_cb), entry_dir);
-
-		image = gtk_image_new_from_stock(GTK_STOCK_OPEN, GTK_ICON_SIZE_BUTTON);
-		gtk_container_add(GTK_CONTAINER(button), image);
-
-		hbox = gtk_hbox_new(FALSE, 6);
-		gtk_box_pack_start(GTK_BOX(hbox), entry_dir, TRUE, TRUE, 0);
-		gtk_box_pack_start(GTK_BOX(hbox), button, FALSE, FALSE, 0);
-		gtk_box_pack_start(GTK_BOX(inner_vbox), hbox, FALSE, FALSE, 0);
-
-		help_label = gtk_label_new(
-			_("<i>If you set the Instant Save directory to a directory "
-			  "which is not automatically cleared,\nyou will need to cleanup instantly saved files "
-			  "manually. The Instant Save plugin will not delete the created files.</i>"));
-		gtk_label_set_use_markup(GTK_LABEL(help_label), TRUE);
-		gtk_misc_set_alignment(GTK_MISC(help_label), 0, 0.5);
-		gtk_box_pack_start(GTK_BOX(inner_vbox), help_label, FALSE, FALSE, 0);
-	}
-	/*
 	 * Backup Copy
 	 */
 	{
@@ -1483,7 +1400,11 @@ GtkWidget *plugin_configure(GtkDialog *dialog)
 	 * Untitled Document Save
 	 */
 	{ 
-		GtkWidget *disabled_radio, *instantsave_radio, *persistent_radio, *hbox, *spin, *entry_dir, *button, *image;
+		GtkWidget *disabled_radio, *instantsave_radio, *persistent_radio, *hbox, *spin, 
+			*entry_dir, *button, *image, *combo, *help_label;
+		guint i;
+		const GSList *node;
+		gchar *entry_dir_label_text;
 
         notebook_vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 2);
         inner_vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 5);
@@ -1511,6 +1432,58 @@ GtkWidget *plugin_configure(GtkDialog *dialog)
 		gtk_container_add(GTK_CONTAINER(inner_vbox), instantsave_radio);
 		g_signal_connect(instantsave_radio, "toggled",
 			G_CALLBACK(radio_toggled_cb), GINT_TO_POINTER(NOTEBOOK_UNTITLEDDOCUMENTSAVE_RADIO_INSTANTSAVE));
+
+		label = gtk_label_new_with_mnemonic(_("Default _filetype to use for new files:"));
+		gtk_misc_set_alignment(GTK_MISC(label), 0, 0.5);
+		gtk_box_pack_start(GTK_BOX(inner_vbox), label, FALSE, FALSE, 0);
+
+		pref_widgets.instantsave_ft_combo = combo = gtk_combo_box_text_new();
+		i = 0;
+		foreach_slist(node, filetypes_get_sorted_by_name())
+		{
+			GeanyFiletype *ft = node->data;
+
+			gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(combo), ft->name);
+
+			if (utils_str_equal(ft->name, instantsave_default_ft))
+				gtk_combo_box_set_active(GTK_COMBO_BOX(combo), i);
+			i++;
+		}
+		gtk_combo_box_set_wrap_width(GTK_COMBO_BOX(combo), 3);
+		gtk_label_set_mnemonic_widget(GTK_LABEL(label), combo);
+		gtk_box_pack_start(GTK_BOX(inner_vbox), combo, FALSE, FALSE, 0);
+
+		entry_dir_label_text = g_strdup_printf(
+			_("_Directory to save files in (leave empty to use the default: %s):"), g_get_tmp_dir());
+		label = gtk_label_new_with_mnemonic(entry_dir_label_text);
+		gtk_misc_set_alignment(GTK_MISC(label), 0, 0.5);
+		gtk_box_pack_start(GTK_BOX(inner_vbox), label, FALSE, FALSE, 0);
+		g_free(entry_dir_label_text);
+
+		pref_widgets.instantsave_entry_dir = entry_dir = gtk_entry_new();
+		gtk_label_set_mnemonic_widget(GTK_LABEL(label), entry_dir);
+		if (!EMPTY(instantsave_target_dir))
+			gtk_entry_set_text(GTK_ENTRY(entry_dir), instantsave_target_dir);
+
+		button = gtk_button_new();
+		g_signal_connect(button, "clicked",
+			G_CALLBACK(target_directory_button_clicked_cb), entry_dir);
+
+		image = gtk_image_new_from_stock(GTK_STOCK_OPEN, GTK_ICON_SIZE_BUTTON);
+		gtk_container_add(GTK_CONTAINER(button), image);
+
+		hbox = gtk_hbox_new(FALSE, 6);
+		gtk_box_pack_start(GTK_BOX(hbox), entry_dir, TRUE, TRUE, 0);
+		gtk_box_pack_start(GTK_BOX(hbox), button, FALSE, FALSE, 0);
+		gtk_box_pack_start(GTK_BOX(inner_vbox), hbox, FALSE, FALSE, 0);
+
+		help_label = gtk_label_new(
+			_("<i>If you set the Instant Save directory to a directory "
+			  "which is not automatically cleared,\nyou will need to cleanup instantly saved files "
+			  "manually. The Instant Save plugin will not delete the created files.</i>"));
+		gtk_label_set_use_markup(GTK_LABEL(help_label), TRUE);
+		gtk_misc_set_alignment(GTK_MISC(help_label), 0, 0.5);
+		gtk_box_pack_start(GTK_BOX(inner_vbox), help_label, FALSE, FALSE, 0);
 
 		// Persistent Untitled Documents
 
@@ -1568,9 +1541,10 @@ GtkWidget *plugin_configure(GtkDialog *dialog)
 
 	/* manually emit the toggled signal of the enable checkboxes to update the widget sensitivity */
 	g_signal_emit_by_name(pref_widgets.checkbox_enable_autosave, "toggled");
-	g_signal_emit_by_name(pref_widgets.checkbox_enable_instantsave, "toggled");
 	g_signal_emit_by_name(pref_widgets.checkbox_enable_backupcopy, "toggled");
 	g_signal_emit_by_name(pref_widgets.untitled_document_save_disabled_radio, "toggled");
+	g_signal_emit_by_name(pref_widgets.untitled_document_save_instantsave_radio, "toggled");
+	g_signal_emit_by_name(pref_widgets.untitled_document_save_persistent_radio, "toggled");
 
 	gtk_widget_show_all(vbox);
 	g_signal_connect(dialog, "response", G_CALLBACK(configure_response_cb), NULL);
