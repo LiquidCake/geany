@@ -48,8 +48,15 @@ enum
 	NOTEBOOK_PAGE_AUTOSAVE = 0,
 	NOTEBOOK_PAGE_INSTANTSAVE,
 	NOTEBOOK_PAGE_BACKUPCOPY,
-	NOTEBOOK_PAGE_PERSISTENTUNTITLEDDOCS
+	NOTEBOOK_PAGE_UNTITLEDDOCUMENTSAVE
 };
+
+enum
+{
+	NOTEBOOK_UNTITLEDDOCUMENTSAVE_RADIO_DISABLED = 0,
+	NOTEBOOK_UNTITLEDDOCUMENTSAVE_RADIO_INSTANTSAVE,
+	NOTEBOOK_UNTITLEDDOCUMENTSAVE_RADIO_PERSISTENT
+};	
 
 static struct
 {
@@ -57,7 +64,6 @@ static struct
 	GtkWidget *checkbox_enable_autosave_losing_focus;
 	GtkWidget *checkbox_enable_instantsave;
 	GtkWidget *checkbox_enable_backupcopy;
-	GtkWidget *checkbox_enable_persistent_untitled_docs;
 
 	GtkWidget *autosave_interval_spin;
 	GtkWidget *autosave_print_msg_checkbox;
@@ -70,6 +76,10 @@ static struct
 	GtkWidget *backupcopy_entry_dir;
 	GtkWidget *backupcopy_entry_time;
 	GtkWidget *backupcopy_spin_dir_levels;
+
+	GtkWidget *untitled_document_save_disabled_radio;
+	GtkWidget *untitled_document_save_instantsave_radio;
+	GtkWidget *untitled_document_save_persistent_radio;
 
 	GtkWidget *persistent_untitled_docs_interval_spin;
 	GtkWidget *persistent_untitled_docs_entry_dir;
@@ -956,7 +966,9 @@ void plugin_init(GeanyData *data)
 		/* switch functionality off, so invalid target directory cannot be actually used */
 		enable_persistent_untitled_docs = FALSE;
 		g_key_file_set_boolean(config, "saveactions", "enable_persistent_untitled_documents", FALSE);
-		gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(pref_widgets.checkbox_enable_persistent_untitled_docs), FALSE);
+		
+		gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(pref_widgets.untitled_document_save_disabled_radio), TRUE);
+		gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(pref_widgets.untitled_document_save_persistent_radio), FALSE);
 
 		ui_set_statusbar(TRUE, "ERROR: persistent untitled documents disabled - bad target directory '%s'", tmp);
 	}
@@ -1121,8 +1133,9 @@ static void configure_response_cb(GtkDialog *dialog, gint response, G_GNUC_UNUSE
 		}
 
 		g_key_file_set_integer(config, "persistent_untitled_documents", "interval_ms", persistent_untitled_docs_interval_ms);
-		/* If toggle button (not boolean variable, which is not updated yet) is active - we check for target dir validity */
-		if (gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(pref_widgets.checkbox_enable_persistent_untitled_docs)))
+		/* If radio button (not boolean variable, which is not updated yet at this moment) is active 
+			- we check for target dir validity */
+		if (gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(pref_widgets.untitled_document_save_persistent_radio)))
 		{
 			if (!EMPTY(persistent_untitled_docs_text_dir) 
 					&& g_str_has_suffix(persistent_untitled_docs_text_dir, G_DIR_SEPARATOR_S))
@@ -1187,12 +1200,6 @@ static void checkbox_toggled_cb(GtkToggleButton *tb, gpointer data)
 		case NOTEBOOK_PAGE_INSTANTSAVE:
 		{
 			gtk_widget_set_sensitive(pref_widgets.instantsave_ft_combo, enable);
-			if (enable)
-			{
-				/* 'Instantsave' and 'Persistent untitled documents' are mutually exclusive */
-				gtk_toggle_button_set_active(
-					GTK_TOGGLE_BUTTON(pref_widgets.checkbox_enable_persistent_untitled_docs), FALSE);
-			}
 			break;
 		}
 		case NOTEBOOK_PAGE_BACKUPCOPY:
@@ -1202,20 +1209,50 @@ static void checkbox_toggled_cb(GtkToggleButton *tb, gpointer data)
 			gtk_widget_set_sensitive(pref_widgets.backupcopy_spin_dir_levels, enable);
 			break;
 		}
-		case NOTEBOOK_PAGE_PERSISTENTUNTITLEDDOCS:
+	}
+}
+
+
+static void radio_toggled_cb(GtkRadioButton *rb, gpointer data)
+{
+	gboolean enable = gtk_toggle_button_get_active(rb);
+
+	switch (GPOINTER_TO_INT(data))
+	{
+		case NOTEBOOK_UNTITLEDDOCUMENTSAVE_RADIO_DISABLED:
 		{
-			gtk_widget_set_sensitive(pref_widgets.persistent_untitled_docs_entry_dir, enable);
-			gtk_widget_set_sensitive(pref_widgets.persistent_untitled_docs_interval_spin, enable);
-			if (enable)
-			{
-				/* 'Instantsave' and 'Persistent untitled documents' are mutually exclusive */
-				gtk_toggle_button_set_active(
-					GTK_TOGGLE_BUTTON(pref_widgets.checkbox_enable_instantsave), FALSE);
+			if (enable) {
+				gtk_widget_set_sensitive(pref_widgets.instantsave_ft_combo, FALSE);
+				gtk_widget_set_sensitive(pref_widgets.instantsave_entry_dir, FALSE);
+
+				gtk_widget_set_sensitive(pref_widgets.persistent_untitled_docs_entry_dir, FALSE);
+				gtk_widget_set_sensitive(pref_widgets.persistent_untitled_docs_interval_spin, FALSE);
+			}
+			break;
+		}
+		case NOTEBOOK_UNTITLEDDOCUMENTSAVE_RADIO_INSTANTSAVE:
+		{
+			if (enable) {
+				gtk_widget_set_sensitive(pref_widgets.instantsave_ft_combo, TRUE);
+				gtk_widget_set_sensitive(pref_widgets.instantsave_entry_dir, TRUE);
+
+				gtk_widget_set_sensitive(pref_widgets.persistent_untitled_docs_entry_dir, FALSE);
+				gtk_widget_set_sensitive(pref_widgets.persistent_untitled_docs_interval_spin, FALSE);
+			}
+			break;
+		}
+		case NOTEBOOK_UNTITLEDDOCUMENTSAVE_RADIO_PERSISTENT:
+		{
+			if (enable) {
+				gtk_widget_set_sensitive(pref_widgets.instantsave_ft_combo, FALSE);
+				gtk_widget_set_sensitive(pref_widgets.instantsave_entry_dir, FALSE);
+
+				gtk_widget_set_sensitive(pref_widgets.persistent_untitled_docs_entry_dir, TRUE);
+				gtk_widget_set_sensitive(pref_widgets.persistent_untitled_docs_interval_spin, TRUE);
 			}
 			break;
 		}
 	}
-
 }
 
 
@@ -1443,73 +1480,97 @@ GtkWidget *plugin_configure(GtkDialog *dialog)
 		gtk_box_pack_start(GTK_BOX(inner_vbox), hbox, FALSE, FALSE, 7);
 	}
 	/*
-	 * Persistent Untitled Documents
+	 * Untitled Document Save
 	 */
-	{
-		GtkWidget *hbox, *spin, *entry_dir, *button, *image;
+	{ 
+		GtkWidget *disabled_radio, *instantsave_radio, *persistent_radio, *hbox, *spin, *entry_dir, *button, *image;
 
-		notebook_vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 2);
-		inner_vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 5);
-		gtk_container_set_border_width(GTK_CONTAINER(inner_vbox), 5);
-		gtk_box_pack_start(GTK_BOX(notebook_vbox), inner_vbox, TRUE, TRUE, 5);
-		gtk_notebook_insert_page(GTK_NOTEBOOK(notebook),
-			notebook_vbox, gtk_label_new(_("Persistent Untitled Documents")), NOTEBOOK_PAGE_PERSISTENTUNTITLEDDOCS);
+        notebook_vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 2);
+        inner_vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 5);
+        gtk_container_set_border_width(GTK_CONTAINER(inner_vbox), 5);
+        gtk_box_pack_start(GTK_BOX(notebook_vbox), inner_vbox, TRUE, TRUE, 5);
+        gtk_notebook_insert_page(GTK_NOTEBOOK(notebook),
+            notebook_vbox, gtk_label_new(_("Untitled Document Save")), NOTEBOOK_PAGE_UNTITLEDDOCUMENTSAVE);
 
-		checkbox_enable = gtk_check_button_new_with_mnemonic(_("_Enable"));
-		gtk_button_set_focus_on_click(GTK_BUTTON(checkbox_enable), FALSE);
-		pref_widgets.checkbox_enable_persistent_untitled_docs = checkbox_enable;
-		gtk_box_pack_start(GTK_BOX(inner_vbox), checkbox_enable, FALSE, FALSE, 6);
-		gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(checkbox_enable), enable_persistent_untitled_docs);
-		g_signal_connect(checkbox_enable, "toggled",
-			G_CALLBACK(checkbox_toggled_cb), GINT_TO_POINTER(NOTEBOOK_PAGE_PERSISTENTUNTITLEDDOCS));
+		disabled_radio = gtk_radio_button_new_with_mnemonic(NULL, _("Disabled"));
+		pref_widgets.untitled_document_save_disabled_radio = disabled_radio;
+		gtk_label_set_mnemonic_widget(GTK_LABEL(label), disabled_radio);
+		gtk_button_set_focus_on_click(GTK_BUTTON(disabled_radio), FALSE);
+		gtk_container_add(GTK_CONTAINER(inner_vbox), disabled_radio);
+		g_signal_connect(disabled_radio, "toggled",
+			G_CALLBACK(radio_toggled_cb), GINT_TO_POINTER(NOTEBOOK_UNTITLEDDOCUMENTSAVE_RADIO_DISABLED));
+
+		// Instantsave
+
+		instantsave_radio = gtk_radio_button_new_with_mnemonic_from_widget(
+			GTK_RADIO_BUTTON(disabled_radio), _("Instant Save"));
+		pref_widgets.untitled_document_save_instantsave_radio = instantsave_radio;
+		gtk_label_set_mnemonic_widget(GTK_LABEL(label), instantsave_radio);
+		gtk_button_set_focus_on_click(GTK_BUTTON(instantsave_radio), FALSE);
+		gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(instantsave_radio), enable_instantsave);
+		gtk_container_add(GTK_CONTAINER(inner_vbox), instantsave_radio);
+		g_signal_connect(instantsave_radio, "toggled",
+			G_CALLBACK(radio_toggled_cb), GINT_TO_POINTER(NOTEBOOK_UNTITLEDDOCUMENTSAVE_RADIO_INSTANTSAVE));
+
+		// Persistent Untitled Documents
+
+		persistent_radio = gtk_radio_button_new_with_mnemonic_from_widget(
+			GTK_RADIO_BUTTON(disabled_radio), _("Persistent Untitled Documents"));
+		pref_widgets.untitled_document_save_persistent_radio = persistent_radio;
+		gtk_label_set_mnemonic_widget(GTK_LABEL(label), persistent_radio);
+		gtk_button_set_focus_on_click(GTK_BUTTON(persistent_radio), FALSE);
+		gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(persistent_radio), enable_persistent_untitled_docs);
+		gtk_container_add(GTK_CONTAINER(inner_vbox), persistent_radio);
+		g_signal_connect(persistent_radio, "toggled",
+			G_CALLBACK(radio_toggled_cb), GINT_TO_POINTER(NOTEBOOK_UNTITLEDDOCUMENTSAVE_RADIO_PERSISTENT));
 
 		label = gtk_label_new_with_mnemonic(_("_Directory to save persistent untitled documents in:"));
-		gtk_misc_set_alignment(GTK_MISC(label), 0, 0.5);
-		gtk_box_pack_start(GTK_BOX(inner_vbox), label, FALSE, FALSE, 0);
+        gtk_misc_set_alignment(GTK_MISC(label), 0, 0.5);
+        gtk_box_pack_start(GTK_BOX(inner_vbox), label, FALSE, FALSE, 0);
 
-		pref_widgets.persistent_untitled_docs_entry_dir = entry_dir = gtk_entry_new();
-		gtk_label_set_mnemonic_widget(GTK_LABEL(label), entry_dir);
-		if (!EMPTY(persistent_untitled_docs_target_dir))
-			gtk_entry_set_text(GTK_ENTRY(entry_dir), persistent_untitled_docs_target_dir);
+        pref_widgets.persistent_untitled_docs_entry_dir = entry_dir = gtk_entry_new();
+        gtk_label_set_mnemonic_widget(GTK_LABEL(label), entry_dir);
+        if (!EMPTY(persistent_untitled_docs_target_dir))
+            gtk_entry_set_text(GTK_ENTRY(entry_dir), persistent_untitled_docs_target_dir);
 
-		button = gtk_button_new();
-		g_signal_connect(button, "clicked",
-			G_CALLBACK(target_directory_button_clicked_cb), entry_dir);
+        button = gtk_button_new();
+        g_signal_connect(button, "clicked",
+            G_CALLBACK(target_directory_button_clicked_cb), entry_dir);
 
-		image = gtk_image_new_from_stock(GTK_STOCK_OPEN, GTK_ICON_SIZE_BUTTON);
-		gtk_container_add(GTK_CONTAINER(button), image);
+        image = gtk_image_new_from_stock(GTK_STOCK_OPEN, GTK_ICON_SIZE_BUTTON);
+        gtk_container_add(GTK_CONTAINER(button), image);
 
-		hbox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 1);
-		gtk_box_pack_start(GTK_BOX(hbox), entry_dir, TRUE, TRUE, 0);
-		gtk_box_pack_start(GTK_BOX(hbox), button, FALSE, FALSE, 0);
+        hbox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 1);
+        gtk_box_pack_start(GTK_BOX(hbox), entry_dir, TRUE, TRUE, 0);
+        gtk_box_pack_start(GTK_BOX(hbox), button, FALSE, FALSE, 0);
 
-		gtk_box_pack_start(GTK_BOX(inner_vbox), hbox, FALSE, FALSE, 0);
+        gtk_box_pack_start(GTK_BOX(inner_vbox), hbox, FALSE, FALSE, 0);
 
-		hbox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 1);
-		label = gtk_label_new_with_mnemonic(_("Untitled document save _interval:"));
-		gtk_misc_set_alignment(GTK_MISC(label), 0, 0.5);
-		gtk_box_pack_start(GTK_BOX(hbox), label, TRUE, TRUE, 0);
+        hbox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 1);
+        label = gtk_label_new_with_mnemonic(_("Untitled document save _interval:"));
+        gtk_misc_set_alignment(GTK_MISC(label), 0, 0.5);
+        gtk_box_pack_start(GTK_BOX(hbox), label, TRUE, TRUE, 0);
 
-		gtk_box_pack_start(GTK_BOX(inner_vbox), hbox, FALSE, FALSE, 5);
+        gtk_box_pack_start(GTK_BOX(inner_vbox), hbox, FALSE, FALSE, 5);
 
-		hbox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 1);
-		pref_widgets.persistent_untitled_docs_interval_spin = spin = gtk_spin_button_new_with_range(1, 600000, 100);
-		gtk_spin_button_set_value(GTK_SPIN_BUTTON(spin), persistent_untitled_docs_interval_ms);
-		gtk_label_set_mnemonic_widget(GTK_LABEL(label), spin);
+        hbox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 1);
+        pref_widgets.persistent_untitled_docs_interval_spin = spin = gtk_spin_button_new_with_range(1, 600000, 100);
+        gtk_spin_button_set_value(GTK_SPIN_BUTTON(spin), persistent_untitled_docs_interval_ms);
+        gtk_label_set_mnemonic_widget(GTK_LABEL(label), spin);
 
-		label = gtk_label_new(_("milliseconds"));
+        label = gtk_label_new(_("milliseconds"));
 
-		gtk_box_pack_start(GTK_BOX(hbox), spin, TRUE, TRUE, 0);
-		gtk_box_pack_start(GTK_BOX(hbox), label, FALSE, FALSE, 5);
+        gtk_box_pack_start(GTK_BOX(hbox), spin, TRUE, TRUE, 0);
+        gtk_box_pack_start(GTK_BOX(hbox), label, FALSE, FALSE, 5);
 
-		gtk_box_pack_start(GTK_BOX(inner_vbox), hbox, FALSE, FALSE, 0);
+        gtk_box_pack_start(GTK_BOX(inner_vbox), hbox, FALSE, FALSE, 0);
 	}
 
 	/* manually emit the toggled signal of the enable checkboxes to update the widget sensitivity */
 	g_signal_emit_by_name(pref_widgets.checkbox_enable_autosave, "toggled");
 	g_signal_emit_by_name(pref_widgets.checkbox_enable_instantsave, "toggled");
 	g_signal_emit_by_name(pref_widgets.checkbox_enable_backupcopy, "toggled");
-	g_signal_emit_by_name(pref_widgets.checkbox_enable_persistent_untitled_docs, "toggled");
+	g_signal_emit_by_name(pref_widgets.untitled_document_save_disabled_radio, "toggled");
 
 	gtk_widget_show_all(vbox);
 	g_signal_connect(dialog, "response", G_CALLBACK(configure_response_cb), NULL);
