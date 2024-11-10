@@ -72,7 +72,8 @@ static struct
 	GtkWidget *backupcopy_entry_time;
 	GtkWidget *backupcopy_spin_dir_levels;
 
-	GtkWidget *instantsave_ft_combo;
+	GtkWidget *untitled_document_save_ft_combo;
+
 	GtkWidget *instantsave_entry_dir;
 
 	GtkWidget *untitled_document_save_disabled_radio;
@@ -99,12 +100,13 @@ static gboolean autosave_print_msg;
 static gboolean autosave_save_all;
 static guint autosave_src_id = 0;
 
-static gchar *instantsave_default_ft;
-static gchar *instantsave_target_dir;
-
 static gchar *backupcopy_backup_dir; /* path to an existing directory in locale encoding */
 static gchar *backupcopy_time_fmt;
 static gint backupcopy_dir_levels;
+
+static gchar *untitled_document_save_default_ft;
+
+static gchar *instantsave_target_dir;
 
 static gint persistent_untitled_docs_interval_ms;
 static guint persistent_untitled_docs_files_updater_src_id = 0;
@@ -305,7 +307,7 @@ static void instantsave_document_new_cb(GObject *obj, GeanyDocument *doc, gpoint
 		if (ft == NULL || ft->id == GEANY_FILETYPES_NONE)
 			/* ft is NULL when a new file without template was opened, so use the
 			 * configured default file type */
-			ft = filetypes_lookup_by_name(instantsave_default_ft);
+			ft = filetypes_lookup_by_name(untitled_document_save_default_ft);
 
 		/* construct filename */
 		directory = !EMPTY(instantsave_target_dir) ? instantsave_target_dir : g_get_tmp_dir();
@@ -331,7 +333,7 @@ static void instantsave_document_new_cb(GObject *obj, GeanyDocument *doc, gpoint
 		doc->file_name = new_filename;
 
 		if (ft != NULL && ft->id == GEANY_FILETYPES_NONE)
-			document_set_filetype(doc, filetypes_lookup_by_name(instantsave_default_ft));
+			document_set_filetype(doc, filetypes_lookup_by_name(untitled_document_save_default_ft));
 
 		/* force saving the file to enable all the related actions(tab name, filetype, etc.) */
 		document_save_file(doc, TRUE);
@@ -913,12 +915,6 @@ void plugin_init(GeanyData *data)
 	enable_persistent_untitled_docs = utils_get_setting_boolean(
 		config, "saveactions", "enable_persistent_untitled_documents", FALSE);
 
-	instantsave_default_ft = utils_get_setting_string(config, "instantsave", "default_ft",
-		filetypes[GEANY_FILETYPES_NONE]->name);
-	tmp = utils_get_setting_string(config, "instantsave", "target_dir", NULL);
-	store_target_directory(tmp, &instantsave_target_dir);
-	g_free(tmp);
-
 	autosave_src_id = 0; /* mark as invalid */
 	autosave_interval = utils_get_setting_integer(config, "autosave", "interval", 300);
 	autosave_print_msg = utils_get_setting_boolean(config, "autosave", "print_messages", FALSE);
@@ -933,8 +929,15 @@ void plugin_init(GeanyData *data)
 	store_target_directory(tmp, &backupcopy_backup_dir);
 	g_free(tmp);
 
+	untitled_document_save_default_ft = utils_get_setting_string(config, "untitled_document_save", "default_ft",
+		filetypes[GEANY_FILETYPES_NONE]->name);
+
+	tmp = utils_get_setting_string(config, "untitled_document_save", "instantsave_target_dir", NULL);
+	store_target_directory(tmp, &instantsave_target_dir);
+	g_free(tmp);
+
 	/* START Persistent untitled documents */
-	if (utils_get_setting_string(config, "persistent_untitled_documents", "target_dir", NULL) == NULL)
+	if (utils_get_setting_string(config, "untitled_document_save", "persistent_untitled_documents_target_dir", NULL) == NULL)
 	{
 		/* Set default target dir */
 		gchar *configdir_utf8, *default_persistent_untitled_docs_dir_utf8;
@@ -944,7 +947,7 @@ void plugin_init(GeanyData *data)
 			G_DIR_SEPARATOR_S, "saveactions", G_DIR_SEPARATOR_S, "persistent_untitled_documents", NULL);
 		g_free(configdir_utf8);
 
-		g_key_file_set_string(config, "persistent_untitled_documents", "target_dir", 
+		g_key_file_set_string(config, "untitled_document_save", "persistent_untitled_documents_target_dir", 
 			default_persistent_untitled_docs_dir_utf8);
 
 		tmp = utils_get_locale_from_utf8(default_persistent_untitled_docs_dir_utf8);
@@ -954,7 +957,7 @@ void plugin_init(GeanyData *data)
 		g_free(tmp);
 	}
 
-	tmp = utils_get_setting_string(config, "persistent_untitled_documents", "target_dir", NULL);
+	tmp = utils_get_setting_string(config, "untitled_document_save", "persistent_untitled_documents_target_dir", NULL);
 	SETPTR(tmp, utils_get_locale_from_utf8(tmp));
 	/* Set target dir variable with value from config, regardless if dir is valid or not */
 	SETPTR(persistent_untitled_docs_target_dir, g_strdup(tmp));
@@ -974,7 +977,7 @@ void plugin_init(GeanyData *data)
 
 	persistent_untitled_docs_files_updater_src_id = 0; /* mark as invalid */
 	persistent_untitled_docs_interval_ms = utils_get_setting_integer(config,
-		"persistent_untitled_documents", "interval_ms", 1000);
+		"untitled_document_save", "persistent_untitled_documents_interval_ms", 1000);
 
 	persistent_untitled_docs_files_updater_set_timeout();
 	/* END Persistent untitled documents */
@@ -1067,15 +1070,16 @@ static void configure_response_cb(GtkDialog *dialog, gint response, G_GNUC_UNUSE
 		autosave_save_all = gtk_toggle_button_get_active(
 			GTK_TOGGLE_BUTTON(pref_widgets.autosave_save_all_radio2));
 
-		g_free(instantsave_default_ft);
-		instantsave_default_ft = gtk_combo_box_text_get_active_text(
-			GTK_COMBO_BOX_TEXT(pref_widgets.instantsave_ft_combo));
-		instantsave_text_dir = gtk_entry_get_text(GTK_ENTRY(pref_widgets.instantsave_entry_dir));
-
 		backupcopy_text_dir = gtk_entry_get_text(GTK_ENTRY(pref_widgets.backupcopy_entry_dir));
 		text_time = gtk_entry_get_text(GTK_ENTRY(pref_widgets.backupcopy_entry_time));
 		backupcopy_dir_levels = gtk_spin_button_get_value_as_int(
 			GTK_SPIN_BUTTON(pref_widgets.backupcopy_spin_dir_levels));
+
+		g_free(untitled_document_save_default_ft);
+		untitled_document_save_default_ft = gtk_combo_box_text_get_active_text(
+			GTK_COMBO_BOX_TEXT(pref_widgets.untitled_document_save_ft_combo));
+
+		instantsave_text_dir = gtk_entry_get_text(GTK_ENTRY(pref_widgets.instantsave_entry_dir));
 
 		persistent_untitled_docs_interval_ms = gtk_spin_button_get_value_as_int(
 			GTK_SPIN_BUTTON(pref_widgets.persistent_untitled_docs_interval_spin));
@@ -1093,26 +1097,6 @@ static void configure_response_cb(GtkDialog *dialog, gint response, G_GNUC_UNUSE
 		g_key_file_set_boolean(config, "autosave", "save_all", autosave_save_all);
 		g_key_file_set_integer(config, "autosave", "interval", autosave_interval);
 
-		if (instantsave_default_ft != NULL)
-			g_key_file_set_string(config, "instantsave", "default_ft", instantsave_default_ft);
-		if (enable_instantsave)
-		{
-			if (EMPTY(instantsave_text_dir))
-			{
-				g_key_file_set_string(config, "instantsave", "target_dir", "");
-				SETPTR(instantsave_target_dir, NULL);
-			}
-			else if (store_target_directory(instantsave_text_dir, &instantsave_target_dir))
-			{
-				g_key_file_set_string(config, "instantsave", "target_dir", instantsave_target_dir);
-			}
-			else
-			{
-				dialogs_show_msgbox(GTK_MESSAGE_ERROR,
-						_("Instantsave directory does not exist or is not writable."));
-			}
-		}
-
 		g_key_file_set_integer(config, "backupcopy", "dir_levels", backupcopy_dir_levels);
 		g_key_file_set_string(config, "backupcopy", "time_fmt", text_time);
 		SETPTR(backupcopy_time_fmt, g_strdup(text_time));
@@ -1129,8 +1113,29 @@ static void configure_response_cb(GtkDialog *dialog, gint response, G_GNUC_UNUSE
 						_("Backup directory does not exist or is not writable."));
 			}
 		}
+		
+		if (untitled_document_save_default_ft != NULL)
+			g_key_file_set_string(config, "untitled_document_save", "default_ft", untitled_document_save_default_ft);
 
-		g_key_file_set_integer(config, "persistent_untitled_documents", "interval_ms", persistent_untitled_docs_interval_ms);
+		if (enable_instantsave)
+		{
+			if (EMPTY(instantsave_text_dir))
+			{
+				g_key_file_set_string(config, "untitled_document_save", "instantsave_target_dir", "");
+				SETPTR(instantsave_target_dir, NULL);
+			}
+			else if (store_target_directory(instantsave_text_dir, &instantsave_target_dir))
+			{
+				g_key_file_set_string(config, "untitled_document_save", "instantsave_target_dir", instantsave_target_dir);
+			}
+			else
+			{
+				dialogs_show_msgbox(GTK_MESSAGE_ERROR,
+						_("Instantsave directory does not exist or is not writable."));
+			}
+		}
+
+		g_key_file_set_integer(config, "untitled_document_save", "persistent_untitled_documents_interval_ms", persistent_untitled_docs_interval_ms);
 		/* If radio button (not boolean variable, which is not updated yet at this moment) is active 
 			- we check for target dir validity */
 		if (gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(pref_widgets.untitled_document_save_persistent_radio)))
@@ -1149,7 +1154,7 @@ static void configure_response_cb(GtkDialog *dialog, gint response, G_GNUC_UNUSE
 					persistent_untitled_docs_text_dir, &persistent_untitled_docs_target_dir))
 			{
 				/* If target dir is valid - we save both itself and "enabled" feature toggle into config file */
-				g_key_file_set_string(config, "persistent_untitled_documents", "target_dir", persistent_untitled_docs_text_dir);
+				g_key_file_set_string(config, "untitled_document_save", "persistent_untitled_documents_target_dir", persistent_untitled_docs_text_dir);
 				
 				enable_persistent_untitled_docs = TRUE;
 				g_key_file_set_boolean(config, "saveactions", "enable_persistent_untitled_documents", TRUE);
@@ -1215,7 +1220,6 @@ static void radio_toggled_cb(GtkRadioButton *rb, gpointer data)
 		case NOTEBOOK_UNTITLEDDOCUMENTSAVE_RADIO_DISABLED:
 		{
 			if (enable) {
-				gtk_widget_set_sensitive(pref_widgets.instantsave_ft_combo, FALSE);
 				gtk_widget_set_sensitive(pref_widgets.instantsave_entry_dir, FALSE);
 
 				gtk_widget_set_sensitive(pref_widgets.persistent_untitled_docs_entry_dir, FALSE);
@@ -1226,7 +1230,6 @@ static void radio_toggled_cb(GtkRadioButton *rb, gpointer data)
 		case NOTEBOOK_UNTITLEDDOCUMENTSAVE_RADIO_INSTANTSAVE:
 		{
 			if (enable) {
-				gtk_widget_set_sensitive(pref_widgets.instantsave_ft_combo, TRUE);
 				gtk_widget_set_sensitive(pref_widgets.instantsave_entry_dir, TRUE);
 
 				gtk_widget_set_sensitive(pref_widgets.persistent_untitled_docs_entry_dir, FALSE);
@@ -1237,7 +1240,6 @@ static void radio_toggled_cb(GtkRadioButton *rb, gpointer data)
 		case NOTEBOOK_UNTITLEDDOCUMENTSAVE_RADIO_PERSISTENT:
 		{
 			if (enable) {
-				gtk_widget_set_sensitive(pref_widgets.instantsave_ft_combo, FALSE);
 				gtk_widget_set_sensitive(pref_widgets.instantsave_entry_dir, FALSE);
 
 				gtk_widget_set_sensitive(pref_widgets.persistent_untitled_docs_entry_dir, TRUE);
@@ -1421,7 +1423,7 @@ GtkWidget *plugin_configure(GtkDialog *dialog)
 		g_signal_connect(disabled_radio, "toggled",
 			G_CALLBACK(radio_toggled_cb), GINT_TO_POINTER(NOTEBOOK_UNTITLEDDOCUMENTSAVE_RADIO_DISABLED));
 
-		// Instantsave
+		/* Instantsave */
 
 		instantsave_radio = gtk_radio_button_new_with_mnemonic_from_widget(
 			GTK_RADIO_BUTTON(disabled_radio), _("Instant Save"));
@@ -1432,26 +1434,6 @@ GtkWidget *plugin_configure(GtkDialog *dialog)
 		gtk_container_add(GTK_CONTAINER(inner_vbox), instantsave_radio);
 		g_signal_connect(instantsave_radio, "toggled",
 			G_CALLBACK(radio_toggled_cb), GINT_TO_POINTER(NOTEBOOK_UNTITLEDDOCUMENTSAVE_RADIO_INSTANTSAVE));
-
-		label = gtk_label_new_with_mnemonic(_("Default _filetype to use for new files:"));
-		gtk_misc_set_alignment(GTK_MISC(label), 0, 0.5);
-		gtk_box_pack_start(GTK_BOX(inner_vbox), label, FALSE, FALSE, 0);
-
-		pref_widgets.instantsave_ft_combo = combo = gtk_combo_box_text_new();
-		i = 0;
-		foreach_slist(node, filetypes_get_sorted_by_name())
-		{
-			GeanyFiletype *ft = node->data;
-
-			gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(combo), ft->name);
-
-			if (utils_str_equal(ft->name, instantsave_default_ft))
-				gtk_combo_box_set_active(GTK_COMBO_BOX(combo), i);
-			i++;
-		}
-		gtk_combo_box_set_wrap_width(GTK_COMBO_BOX(combo), 3);
-		gtk_label_set_mnemonic_widget(GTK_LABEL(label), combo);
-		gtk_box_pack_start(GTK_BOX(inner_vbox), combo, FALSE, FALSE, 0);
 
 		entry_dir_label_text = g_strdup_printf(
 			_("_Directory to save files in (leave empty to use the default: %s):"), g_get_tmp_dir());
@@ -1483,10 +1465,10 @@ GtkWidget *plugin_configure(GtkDialog *dialog)
 			  "manually. The Instant Save plugin will not delete the created files.</i>"));
 		gtk_label_set_use_markup(GTK_LABEL(help_label), TRUE);
 		gtk_misc_set_alignment(GTK_MISC(help_label), 0, 0.5);
-		gtk_widget_set_margin_bottom(GTK_LABEL(help_label), 15);
+		gtk_widget_set_margin_bottom(GTK_LABEL(help_label), 8);
 		gtk_box_pack_start(GTK_BOX(inner_vbox), help_label, FALSE, FALSE, 0);
 
-		// Persistent Untitled Documents
+		/* Persistent Untitled Documents */
 
 		persistent_radio = gtk_radio_button_new_with_mnemonic_from_widget(
 			GTK_RADIO_BUTTON(disabled_radio), _("Persistent Untitled Documents"));
@@ -1538,6 +1520,29 @@ GtkWidget *plugin_configure(GtkDialog *dialog)
         gtk_box_pack_start(GTK_BOX(hbox), label, FALSE, FALSE, 5);
 
         gtk_box_pack_start(GTK_BOX(inner_vbox), hbox, FALSE, FALSE, 0);
+
+		/* Common */
+
+		label = gtk_label_new_with_mnemonic(_("Default _filetype to use for new files:"));
+		gtk_misc_set_alignment(GTK_MISC(label), 0, 0.5);
+		gtk_widget_set_margin_top(GTK_LABEL(label), 15);
+		gtk_box_pack_start(GTK_BOX(inner_vbox), label, FALSE, FALSE, 0);
+
+		pref_widgets.untitled_document_save_ft_combo = combo = gtk_combo_box_text_new();
+		i = 0;
+		foreach_slist(node, filetypes_get_sorted_by_name())
+		{
+			GeanyFiletype *ft = node->data;
+
+			gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(combo), ft->name);
+
+			if (utils_str_equal(ft->name, untitled_document_save_default_ft))
+				gtk_combo_box_set_active(GTK_COMBO_BOX(combo), i);
+			i++;
+		}
+		gtk_combo_box_set_wrap_width(GTK_COMBO_BOX(combo), 3);
+		gtk_label_set_mnemonic_widget(GTK_LABEL(label), combo);
+		gtk_box_pack_start(GTK_BOX(inner_vbox), combo, FALSE, FALSE, 0);
 	}
 
 	/* manually emit the toggled signal of the enable checkboxes to update the widget sensitivity */
@@ -1559,11 +1564,12 @@ void plugin_cleanup(void)
 	if (autosave_src_id != 0)
 		g_source_remove(autosave_src_id);
 
-	g_free(instantsave_default_ft);
-	g_free(instantsave_target_dir);
-
 	g_free(backupcopy_backup_dir);
 	g_free(backupcopy_time_fmt);
+
+	g_free(untitled_document_save_default_ft);
+	
+	g_free(instantsave_target_dir);
 
 	if (persistent_untitled_docs_files_updater_src_id != 0)
 		g_source_remove(persistent_untitled_docs_files_updater_src_id);
