@@ -1290,7 +1290,7 @@ GtkWidget *plugin_configure(GtkDialog *dialog)
 
 		label = gtk_label_new_with_mnemonic(_("Auto save _interval:"));
 		gtk_misc_set_alignment(GTK_MISC(label), 0, 0.5);
-		gtk_box_pack_start(GTK_BOX(inner_vbox), label, TRUE, TRUE, 0);
+		gtk_box_pack_start(GTK_BOX(inner_vbox), label, FALSE, FALSE, 6);
 
 		pref_widgets.autosave_interval_spin = spin = gtk_spin_button_new_with_range(1, 1800, 1);
 		gtk_spin_button_set_value(GTK_SPIN_BUTTON(spin), autosave_interval);
