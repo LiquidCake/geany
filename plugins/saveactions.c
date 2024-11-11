@@ -29,6 +29,7 @@
 #include <stdio.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <string.h>
 #include <errno.h>
 #include <glib/gstdio.h>
 
@@ -295,6 +296,18 @@ static void backupcopy_document_save_cb(GObject *obj, GeanyDocument *doc, gpoint
 }
 
 
+static GeanyFiletype *get_doc_filetype_or_default(GeanyDocument *doc) {
+	GeanyFiletype *ft = doc->file_type;
+
+	if (ft == NULL || ft->id == GEANY_FILETYPES_NONE)
+		/* ft is NULL when a new file without template was opened, so use the
+			* configured default file type */
+		ft = filetypes_lookup_by_name(untitled_document_save_default_ft);
+	
+	return ft;
+}
+
+
 static void instantsave_document_new_cb(GObject *obj, GeanyDocument *doc, gpointer user_data)
 {
     if (doc->file_name == NULL)
@@ -302,12 +315,7 @@ static void instantsave_document_new_cb(GObject *obj, GeanyDocument *doc, gpoint
 		const gchar *directory;
 		gchar *new_filename;
 		gint fd;
-		GeanyFiletype *ft = doc->file_type;
-
-		if (ft == NULL || ft->id == GEANY_FILETYPES_NONE)
-			/* ft is NULL when a new file without template was opened, so use the
-			 * configured default file type */
-			ft = filetypes_lookup_by_name(untitled_document_save_default_ft);
+		GeanyFiletype *ft = get_doc_filetype_or_default(doc);
 
 		/* construct filename */
 		directory = !EMPTY(instantsave_target_dir) ? instantsave_target_dir : g_get_tmp_dir();
@@ -377,21 +385,40 @@ static gboolean is_persistent_untitled_doc_file(const gchar *file_path_utf8)
 }
 
 
-static gchar* create_new_persistent_untitled_doc_file_name(void)
+static gchar* create_new_persistent_untitled_doc_file_name(GeanyDocument *doc)
 {
 	gint i;
+	gchar *extension_postfix;
+	GeanyFiletype *filetype = get_doc_filetype_or_default(doc);
+
+	if (filetype != NULL && !EMPTY(filetype->extension))
+		extension_postfix = g_strconcat(".", filetype->extension, NULL);
+	else
+		extension_postfix = "";
 
 	for (i = 1; i < 1000; i++)
 	{
-		gchar *next_file = g_strdup_printf("%s%c%s%d", persistent_untitled_docs_target_dir, 
-			G_DIR_SEPARATOR, PERSISTENT_UNTITLED_DOC_FILE_NAME_PREFIX, i);
-		gboolean file_exists = g_file_test(next_file, G_FILE_TEST_EXISTS);
+		gchar *next_file_name, *next_file_path;
 
-		g_free(next_file);
+		next_file_name = g_strdup_printf("%s%d%s", PERSISTENT_UNTITLED_DOC_FILE_NAME_PREFIX, i, extension_postfix);
+		next_file_path = g_strdup_printf("%s%c%s", persistent_untitled_docs_target_dir, G_DIR_SEPARATOR, next_file_name);
 
-		if (! file_exists)
-			return g_strdup_printf("%s%d", PERSISTENT_UNTITLED_DOC_FILE_NAME_PREFIX, i);
+		gboolean file_exists = g_file_test(next_file_path, G_FILE_TEST_EXISTS);
+
+		g_free(next_file_path);
+
+		if (file_exists) {
+			g_free(next_file_name);
+		} else {
+			if (strlen(extension_postfix))
+				g_free(extension_postfix);
+
+			return next_file_name;
+		}
 	}
+
+	if (strlen(extension_postfix))
+		g_free(extension_postfix);
 
 	return NULL;
 }
@@ -410,7 +437,9 @@ static void persistent_untitled_document_new_cb(GObject *obj, GeanyDocument *doc
 			return;
 		}
 
-		new_pers_doc_file_name_utf8 = create_new_persistent_untitled_doc_file_name();
+		new_pers_doc_file_name_utf8 = create_new_persistent_untitled_doc_file_name(doc);
+
+		document_set_filetype(doc, filetypes_lookup_by_name(untitled_document_save_default_ft));
 
 		if (new_pers_doc_file_name_utf8 == NULL)
 		{
