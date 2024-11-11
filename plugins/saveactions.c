@@ -87,7 +87,7 @@ static struct
 pref_widgets;
 
 
-#define PERSISTENT_UNTITLED_DOC_FILE_NAME_PREFIX "gtemp_"
+#define PERSISTENT_UNTITLED_DOC_FILE_NAME_PREFIX "unttld_"
 
 
 static gboolean enable_autosave;
