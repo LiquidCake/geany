@@ -73,13 +73,13 @@ static struct
 	GtkWidget *backupcopy_entry_time;
 	GtkWidget *backupcopy_spin_dir_levels;
 
-	GtkWidget *untitled_document_save_ft_combo;
-
-	GtkWidget *instantsave_entry_dir;
-
 	GtkWidget *untitled_document_save_disabled_radio;
 	GtkWidget *untitled_document_save_instantsave_radio;
 	GtkWidget *untitled_document_save_persistent_radio;
+
+	GtkWidget *untitled_document_save_ft_combo;
+
+	GtkWidget *instantsave_entry_dir;
 
 	GtkWidget *persistent_untitled_docs_interval_spin;
 	GtkWidget *persistent_untitled_docs_entry_dir;
@@ -937,10 +937,10 @@ void plugin_init(GeanyData *data)
 		config, "saveactions", "enable_autosave", FALSE);
 	enable_autosave_losing_focus = utils_get_setting_boolean(
 		config, "saveactions", "enable_autosave_losing_focus", FALSE);
-	enable_instantsave = utils_get_setting_boolean(
-		config, "saveactions", "enable_instantsave", FALSE);
 	enable_backupcopy = utils_get_setting_boolean(
 		config, "saveactions", "enable_backupcopy", FALSE);
+	enable_instantsave = utils_get_setting_boolean(
+		config, "saveactions", "enable_instantsave", FALSE);
 	enable_persistent_untitled_docs = utils_get_setting_boolean(
 		config, "saveactions", "enable_persistent_untitled_documents", FALSE);
 
