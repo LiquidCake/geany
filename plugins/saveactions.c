@@ -1494,7 +1494,7 @@ GtkWidget *plugin_configure(GtkDialog *dialog)
 			  "manually. The Instant Save plugin will not delete the created files.</i>"));
 		gtk_label_set_use_markup(GTK_LABEL(help_label), TRUE);
 		gtk_misc_set_alignment(GTK_MISC(help_label), 0, 0.5);
-		gtk_widget_set_margin_bottom(GTK_LABEL(help_label), 8);
+		gtk_widget_set_margin_bottom(help_label, 8);
 		gtk_box_pack_start(GTK_BOX(inner_vbox), help_label, FALSE, FALSE, 0);
 
 		/* Persistent Untitled Documents */
@@ -1554,7 +1554,7 @@ GtkWidget *plugin_configure(GtkDialog *dialog)
 
 		label = gtk_label_new_with_mnemonic(_("Default _filetype to use for new files:"));
 		gtk_misc_set_alignment(GTK_MISC(label), 0, 0.5);
-		gtk_widget_set_margin_top(GTK_LABEL(label), 15);
+		gtk_widget_set_margin_top(label, 15);
 		gtk_box_pack_start(GTK_BOX(inner_vbox), label, FALSE, FALSE, 0);
 
 		pref_widgets.untitled_document_save_ft_combo = combo = gtk_combo_box_text_new();
