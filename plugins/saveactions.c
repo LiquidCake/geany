@@ -1242,7 +1242,7 @@ static void checkbox_toggled_cb(GtkToggleButton *tb, gpointer data)
 
 static void radio_toggled_cb(GtkRadioButton *rb, gpointer data)
 {
-	gboolean enable = gtk_toggle_button_get_active(rb);
+	gboolean enable = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(rb));
 
 	switch (GPOINTER_TO_INT(data))
 	{
