@@ -1457,6 +1457,7 @@ GtkWidget *plugin_configure(GtkDialog *dialog)
 		instantsave_radio = gtk_radio_button_new_with_mnemonic_from_widget(
 			GTK_RADIO_BUTTON(disabled_radio), _("Instant Save"));
 		pref_widgets.untitled_document_save_instantsave_radio = instantsave_radio;
+		gtk_widget_set_margin_top(instantsave_radio, 8);
 		gtk_label_set_mnemonic_widget(GTK_LABEL(label), instantsave_radio);
 		gtk_button_set_focus_on_click(GTK_BUTTON(instantsave_radio), FALSE);
 		gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(instantsave_radio), enable_instantsave);
@@ -1502,6 +1503,7 @@ GtkWidget *plugin_configure(GtkDialog *dialog)
 		persistent_radio = gtk_radio_button_new_with_mnemonic_from_widget(
 			GTK_RADIO_BUTTON(disabled_radio), _("Persistent Untitled Documents"));
 		pref_widgets.untitled_document_save_persistent_radio = persistent_radio;
+		gtk_widget_set_margin_top(persistent_radio, 8);
 		gtk_label_set_mnemonic_widget(GTK_LABEL(label), persistent_radio);
 		gtk_button_set_focus_on_click(GTK_BUTTON(persistent_radio), FALSE);
 		gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(persistent_radio), enable_persistent_untitled_docs);
@@ -1554,7 +1556,7 @@ GtkWidget *plugin_configure(GtkDialog *dialog)
 
 		label = gtk_label_new_with_mnemonic(_("Default _filetype to use for new files:"));
 		gtk_misc_set_alignment(GTK_MISC(label), 0, 0.5);
-		gtk_widget_set_margin_top(label, 15);
+		gtk_widget_set_margin_top(label, 20);
 		gtk_box_pack_start(GTK_BOX(inner_vbox), label, FALSE, FALSE, 0);
 
 		pref_widgets.untitled_document_save_ft_combo = combo = gtk_combo_box_text_new();
