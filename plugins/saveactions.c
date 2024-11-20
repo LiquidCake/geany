@@ -1,21 +1,21 @@
 /*
- *      saveactions.c - this file is part of Geany, a fast and lightweight IDE
+ *		saveactions.c - this file is part of Geany, a fast and lightweight IDE
  *
- *      Copyright 2007 The Geany contributors
+ *		Copyright 2007 The Geany contributors
  *
- *      This program is free software; you can redistribute it and/or modify
- *      it under the terms of the GNU General Public License as published by
- *      the Free Software Foundation; either version 2 of the License, or
- *      (at your option) any later version.
+ *		This program is free software; you can redistribute it and/or modify
+ *		it under the terms of the GNU General Public License as published by
+ *		the Free Software Foundation; either version 2 of the License, or
+ *		(at your option) any later version.
  *
- *      This program is distributed in the hope that it will be useful,
- *      but WITHOUT ANY WARRANTY; without even the implied warranty of
- *      MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *      GNU General Public License for more details.
+ *		This program is distributed in the hope that it will be useful,
+ *		but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *		MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ *		GNU General Public License for more details.
  *
- *      You should have received a copy of the GNU General Public License along
- *      with this program; if not, write to the Free Software Foundation, Inc.,
- *      51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ *		You should have received a copy of the GNU General Public License along
+ *		with this program; if not, write to the Free Software Foundation, Inc.,
+ *		51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
 
@@ -310,8 +310,8 @@ static GeanyFiletype *get_doc_filetype_or_default(GeanyDocument *doc) {
 
 static void instantsave_document_new_cb(GObject *obj, GeanyDocument *doc, gpointer user_data)
 {
-    if (doc->file_name == NULL)
-    {
+	if (doc->file_name == NULL)
+	{
 		const gchar *directory;
 		gchar *new_filename;
 		gint fd;
@@ -345,7 +345,7 @@ static void instantsave_document_new_cb(GObject *obj, GeanyDocument *doc, gpoint
 
 		/* force saving the file to enable all the related actions(tab name, filetype, etc.) */
 		document_save_file(doc, TRUE);
-    }
+	}
 }
 
 
@@ -364,7 +364,7 @@ static gboolean is_persistent_untitled_doc_file(const gchar *file_path_utf8)
 	gboolean matched;
 
 	if (file_path_utf8 == NULL)
-		return FALSE; 
+		return FALSE;
 
 	file_path_locale = utils_get_locale_from_utf8(file_path_utf8);
 	dirname = g_path_get_dirname(file_path_locale);
@@ -572,7 +572,7 @@ static void persistent_untitled_document_before_save_as_cb(GObject *obj, GeanyDo
 		{
 			/* we have to store old filename inside document data to be able to somehow
 			pass it to document-save callback that is called directly after this one */
-			plugin_set_document_data_full(geany_plugin, doc, "file-name-before-save-as", 
+			plugin_set_document_data_full(geany_plugin, doc, "file-name-before-save-as",
 				g_strdup(old_file_path_utf8), g_free);
 		}
 	}
@@ -588,7 +588,7 @@ static void persistent_untitled_document_save_cb(GObject *obj, GeanyDocument *do
 
 	if (old_file_path_utf8 != NULL)
 	{
-		if (is_persistent_untitled_doc_file(old_file_path_utf8) 
+		if (is_persistent_untitled_doc_file(old_file_path_utf8)
 			&& ! g_str_equal(old_file_path_utf8, new_file_path_utf8))
 		{
 			/* remove untitled doc file if it was saved as some other file */
@@ -636,9 +636,9 @@ static void load_all_persistent_untitled_doc_files_into_editor(void)
 
 			g_free(locale_file_path);
 
-			/* we are closing (and thus deleting) empty documents here - mainly in order to avoid accumulation of 
-			empty untitled document files, that happens when new tab with empty document is created at new (empty) session start. 
-			Note: we cannot 'close' newly-created empty document from 'document-activate' callback, 
+			/* we are closing (and thus deleting) empty documents here - mainly in order to avoid accumulation of
+			empty untitled document files, that happens when new tab with empty document is created at new (empty) session start.
+			Note: we cannot 'close' newly-created empty document from 'document-activate' callback,
 			so this is a perfect place for it */
 			if (doc != NULL && document_is_empty(doc))
 				document_close(doc);
@@ -663,7 +663,7 @@ static gboolean load_all_persistent_untitled_doc_files_idle(gpointer data)
 
 static gboolean load_all_persistent_untitled_doc_files_and_reopen_current_idle(gpointer data)
 {
-	/* remember and re-open document from originaly focused tab 
+	/* remember and re-open document from originaly focused tab
 	(after we mess selected tab with re-loaded untitled doc files) */
 	GeanyDocument *current_doc = document_get_current();
 
@@ -976,7 +976,7 @@ void plugin_init(GeanyData *data)
 			G_DIR_SEPARATOR_S, "saveactions", G_DIR_SEPARATOR_S, "persistent_untitled_documents", NULL);
 		g_free(configdir_utf8);
 
-		g_key_file_set_string(config, "untitled_document_save", "persistent_untitled_documents_target_dir", 
+		g_key_file_set_string(config, "untitled_document_save", "persistent_untitled_documents_target_dir",
 			default_persistent_untitled_docs_dir_utf8);
 
 		tmp = utils_get_locale_from_utf8(default_persistent_untitled_docs_dir_utf8);
@@ -1165,18 +1165,18 @@ static void configure_response_cb(GtkDialog *dialog, gint response, G_GNUC_UNUSE
 		}
 
 		g_key_file_set_integer(config, "untitled_document_save", "persistent_untitled_documents_interval_ms", persistent_untitled_docs_interval_ms);
-		/* If radio button (not boolean variable, which is not updated yet at this moment) is active 
+		/* If radio button (not boolean variable, which is not updated yet at this moment) is active
 			- we check for target dir validity */
 		if (gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(pref_widgets.untitled_document_save_persistent_radio)))
 		{
-			if (!EMPTY(persistent_untitled_docs_text_dir) 
+			if (!EMPTY(persistent_untitled_docs_text_dir)
 					&& g_str_has_suffix(persistent_untitled_docs_text_dir, G_DIR_SEPARATOR_S))
 			{
 				/* If target dir path ends with dir separator - we consider it invalid */
 				g_signal_stop_emission_by_name(dialog, "response");
 
 				dialogs_show_msgbox(GTK_MESSAGE_ERROR,
-						_("Please remove path separator (%s) from persistent untitled documents directory path"), 
+						_("Please remove path separator (%s) from persistent untitled documents directory path"),
 							G_DIR_SEPARATOR_S);
 			}
 			else if (!EMPTY(persistent_untitled_docs_text_dir) && store_target_directory(
@@ -1190,7 +1190,7 @@ static void configure_response_cb(GtkDialog *dialog, gint response, G_GNUC_UNUSE
 			}
 			else
 			{
-				/* If target dir is not valid - we prevent dialog closing and avoid saving both "target dir" 
+				/* If target dir is not valid - we prevent dialog closing and avoid saving both "target dir"
 				and "enabled" settings into config file */
 				g_signal_stop_emission_by_name(dialog, "response");
 
@@ -1253,6 +1253,8 @@ static void radio_toggled_cb(GtkRadioButton *rb, gpointer data)
 
 				gtk_widget_set_sensitive(pref_widgets.persistent_untitled_docs_entry_dir, FALSE);
 				gtk_widget_set_sensitive(pref_widgets.persistent_untitled_docs_interval_spin, FALSE);
+
+				gtk_widget_set_sensitive(pref_widgets.untitled_document_save_ft_combo, FALSE);
 			}
 			break;
 		}
@@ -1263,6 +1265,8 @@ static void radio_toggled_cb(GtkRadioButton *rb, gpointer data)
 
 				gtk_widget_set_sensitive(pref_widgets.persistent_untitled_docs_entry_dir, FALSE);
 				gtk_widget_set_sensitive(pref_widgets.persistent_untitled_docs_interval_spin, FALSE);
+
+				gtk_widget_set_sensitive(pref_widgets.untitled_document_save_ft_combo, TRUE);
 			}
 			break;
 		}
@@ -1273,6 +1277,8 @@ static void radio_toggled_cb(GtkRadioButton *rb, gpointer data)
 
 				gtk_widget_set_sensitive(pref_widgets.persistent_untitled_docs_entry_dir, TRUE);
 				gtk_widget_set_sensitive(pref_widgets.persistent_untitled_docs_interval_spin, TRUE);
+
+				gtk_widget_set_sensitive(pref_widgets.untitled_document_save_ft_combo, TRUE);
 			}
 			break;
 		}
@@ -1430,19 +1436,19 @@ GtkWidget *plugin_configure(GtkDialog *dialog)
 	/*
 	 * Untitled Document Save
 	 */
-	{ 
-		GtkWidget *disabled_radio, *instantsave_radio, *persistent_radio, *hbox, *spin, 
+	{
+		GtkWidget *disabled_radio, *instantsave_radio, *persistent_radio, *hbox, *spin,
 			*entry_dir, *button, *image, *combo, *help_label;
 		guint i;
 		const GSList *node;
 		gchar *entry_dir_label_text;
 
-        notebook_vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 2);
-        inner_vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 5);
-        gtk_container_set_border_width(GTK_CONTAINER(inner_vbox), 5);
-        gtk_box_pack_start(GTK_BOX(notebook_vbox), inner_vbox, TRUE, TRUE, 5);
-        gtk_notebook_insert_page(GTK_NOTEBOOK(notebook),
-            notebook_vbox, gtk_label_new(_("Untitled Document Save")), NOTEBOOK_PAGE_UNTITLEDDOCUMENTSAVE);
+		notebook_vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 2);
+		inner_vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 5);
+		gtk_container_set_border_width(GTK_CONTAINER(inner_vbox), 5);
+		gtk_box_pack_start(GTK_BOX(notebook_vbox), inner_vbox, TRUE, TRUE, 5);
+		gtk_notebook_insert_page(GTK_NOTEBOOK(notebook),
+			notebook_vbox, gtk_label_new(_("Untitled Document Save")), NOTEBOOK_PAGE_UNTITLEDDOCUMENTSAVE);
 
 		disabled_radio = gtk_radio_button_new_with_mnemonic(NULL, _("Disabled"));
 		pref_widgets.untitled_document_save_disabled_radio = disabled_radio;
@@ -1457,7 +1463,6 @@ GtkWidget *plugin_configure(GtkDialog *dialog)
 		instantsave_radio = gtk_radio_button_new_with_mnemonic_from_widget(
 			GTK_RADIO_BUTTON(disabled_radio), _("Instant Save"));
 		pref_widgets.untitled_document_save_instantsave_radio = instantsave_radio;
-		gtk_widget_set_margin_top(instantsave_radio, 8);
 		gtk_label_set_mnemonic_widget(GTK_LABEL(label), instantsave_radio);
 		gtk_button_set_focus_on_click(GTK_BUTTON(instantsave_radio), FALSE);
 		gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(instantsave_radio), enable_instantsave);
@@ -1469,6 +1474,7 @@ GtkWidget *plugin_configure(GtkDialog *dialog)
 			_("_Directory to save files in (leave empty to use the default: %s):"), g_get_tmp_dir());
 		label = gtk_label_new_with_mnemonic(entry_dir_label_text);
 		gtk_misc_set_alignment(GTK_MISC(label), 0, 0.5);
+		gtk_widget_set_margin_left(label, 12);
 		gtk_box_pack_start(GTK_BOX(inner_vbox), label, FALSE, FALSE, 0);
 		g_free(entry_dir_label_text);
 
@@ -1487,14 +1493,16 @@ GtkWidget *plugin_configure(GtkDialog *dialog)
 		hbox = gtk_hbox_new(FALSE, 6);
 		gtk_box_pack_start(GTK_BOX(hbox), entry_dir, TRUE, TRUE, 0);
 		gtk_box_pack_start(GTK_BOX(hbox), button, FALSE, FALSE, 0);
+		gtk_widget_set_margin_left(hbox, 12);
 		gtk_box_pack_start(GTK_BOX(inner_vbox), hbox, FALSE, FALSE, 0);
 
 		help_label = gtk_label_new(
 			_("<i>If you set the Instant Save directory to a directory "
-			  "which is not automatically cleared,\nyou will need to cleanup instantly saved files "
-			  "manually. The Instant Save plugin will not delete the created files.</i>"));
+				"which is not automatically cleared,\nyou will need to cleanup instantly saved files "
+				"manually. The Instant Save plugin will not delete the created files.</i>"));
 		gtk_label_set_use_markup(GTK_LABEL(help_label), TRUE);
 		gtk_misc_set_alignment(GTK_MISC(help_label), 0, 0.5);
+		gtk_widget_set_margin_left(help_label, 12);
 		gtk_widget_set_margin_bottom(help_label, 8);
 		gtk_box_pack_start(GTK_BOX(inner_vbox), help_label, FALSE, FALSE, 0);
 
@@ -1503,7 +1511,6 @@ GtkWidget *plugin_configure(GtkDialog *dialog)
 		persistent_radio = gtk_radio_button_new_with_mnemonic_from_widget(
 			GTK_RADIO_BUTTON(disabled_radio), _("Persistent Untitled Documents"));
 		pref_widgets.untitled_document_save_persistent_radio = persistent_radio;
-		gtk_widget_set_margin_top(persistent_radio, 8);
 		gtk_label_set_mnemonic_widget(GTK_LABEL(label), persistent_radio);
 		gtk_button_set_focus_on_click(GTK_BUTTON(persistent_radio), FALSE);
 		gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(persistent_radio), enable_persistent_untitled_docs);
@@ -1512,51 +1519,55 @@ GtkWidget *plugin_configure(GtkDialog *dialog)
 			G_CALLBACK(radio_toggled_cb), GINT_TO_POINTER(NOTEBOOK_UNTITLEDDOCUMENTSAVE_RADIO_PERSISTENT));
 
 		label = gtk_label_new_with_mnemonic(_("_Directory to save persistent untitled documents in:"));
-        gtk_misc_set_alignment(GTK_MISC(label), 0, 0.5);
-        gtk_box_pack_start(GTK_BOX(inner_vbox), label, FALSE, FALSE, 0);
+		gtk_misc_set_alignment(GTK_MISC(label), 0, 0.5);
+		gtk_widget_set_margin_left(label, 12);
+		gtk_box_pack_start(GTK_BOX(inner_vbox), label, FALSE, FALSE, 0);
 
-        pref_widgets.persistent_untitled_docs_entry_dir = entry_dir = gtk_entry_new();
-        gtk_label_set_mnemonic_widget(GTK_LABEL(label), entry_dir);
-        if (!EMPTY(persistent_untitled_docs_target_dir))
-            gtk_entry_set_text(GTK_ENTRY(entry_dir), persistent_untitled_docs_target_dir);
+		pref_widgets.persistent_untitled_docs_entry_dir = entry_dir = gtk_entry_new();
+		gtk_label_set_mnemonic_widget(GTK_LABEL(label), entry_dir);
+		if (!EMPTY(persistent_untitled_docs_target_dir))
+			 gtk_entry_set_text(GTK_ENTRY(entry_dir), persistent_untitled_docs_target_dir);
 
-        button = gtk_button_new();
-        g_signal_connect(button, "clicked",
-            G_CALLBACK(target_directory_button_clicked_cb), entry_dir);
+		button = gtk_button_new();
+		g_signal_connect(button, "clicked",
+			G_CALLBACK(target_directory_button_clicked_cb), entry_dir);
 
-        image = gtk_image_new_from_stock(GTK_STOCK_OPEN, GTK_ICON_SIZE_BUTTON);
-        gtk_container_add(GTK_CONTAINER(button), image);
+		image = gtk_image_new_from_stock(GTK_STOCK_OPEN, GTK_ICON_SIZE_BUTTON);
+		gtk_container_add(GTK_CONTAINER(button), image);
 
-        hbox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 1);
-        gtk_box_pack_start(GTK_BOX(hbox), entry_dir, TRUE, TRUE, 0);
-        gtk_box_pack_start(GTK_BOX(hbox), button, FALSE, FALSE, 0);
+		hbox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 1);
+		gtk_box_pack_start(GTK_BOX(hbox), entry_dir, TRUE, TRUE, 0);
+		gtk_box_pack_start(GTK_BOX(hbox), button, FALSE, FALSE, 0);
+		gtk_widget_set_margin_left(hbox, 12);
 
-        gtk_box_pack_start(GTK_BOX(inner_vbox), hbox, FALSE, FALSE, 0);
+		gtk_box_pack_start(GTK_BOX(inner_vbox), hbox, FALSE, FALSE, 0);
 
-        hbox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 1);
-        label = gtk_label_new_with_mnemonic(_("Untitled document save _interval:"));
-        gtk_misc_set_alignment(GTK_MISC(label), 0, 0.5);
-        gtk_box_pack_start(GTK_BOX(hbox), label, TRUE, TRUE, 0);
+		hbox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 1);
+		label = gtk_label_new_with_mnemonic(_("Untitled document save _interval:"));
+		gtk_misc_set_alignment(GTK_MISC(label), 0, 0.5);
+		gtk_box_pack_start(GTK_BOX(hbox), label, TRUE, TRUE, 0);
+		gtk_widget_set_margin_left(hbox, 12);
 
-        gtk_box_pack_start(GTK_BOX(inner_vbox), hbox, FALSE, FALSE, 5);
+		gtk_box_pack_start(GTK_BOX(inner_vbox), hbox, FALSE, FALSE, 5);
 
-        hbox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 1);
-        pref_widgets.persistent_untitled_docs_interval_spin = spin = gtk_spin_button_new_with_range(1, 600000, 100);
-        gtk_spin_button_set_value(GTK_SPIN_BUTTON(spin), persistent_untitled_docs_interval_ms);
-        gtk_label_set_mnemonic_widget(GTK_LABEL(label), spin);
+		hbox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 1);
+		pref_widgets.persistent_untitled_docs_interval_spin = spin = gtk_spin_button_new_with_range(1, 600000, 100);
+		gtk_spin_button_set_value(GTK_SPIN_BUTTON(spin), persistent_untitled_docs_interval_ms);
+		gtk_label_set_mnemonic_widget(GTK_LABEL(label), spin);
 
-        label = gtk_label_new(_("milliseconds"));
+		label = gtk_label_new(_("milliseconds"));
 
-        gtk_box_pack_start(GTK_BOX(hbox), spin, TRUE, TRUE, 0);
-        gtk_box_pack_start(GTK_BOX(hbox), label, FALSE, FALSE, 5);
+		gtk_box_pack_start(GTK_BOX(hbox), spin, TRUE, TRUE, 0);
+		gtk_box_pack_start(GTK_BOX(hbox), label, FALSE, FALSE, 5);
+		gtk_widget_set_margin_left(hbox, 12);
 
-        gtk_box_pack_start(GTK_BOX(inner_vbox), hbox, FALSE, FALSE, 0);
+		gtk_box_pack_start(GTK_BOX(inner_vbox), hbox, FALSE, FALSE, 0);
 
 		/* Common */
 
 		label = gtk_label_new_with_mnemonic(_("Default _filetype to use for new files:"));
 		gtk_misc_set_alignment(GTK_MISC(label), 0, 0.5);
-		gtk_widget_set_margin_top(label, 20);
+		gtk_widget_set_margin_top(label, 15);
 		gtk_box_pack_start(GTK_BOX(inner_vbox), label, FALSE, FALSE, 0);
 
 		pref_widgets.untitled_document_save_ft_combo = combo = gtk_combo_box_text_new();
