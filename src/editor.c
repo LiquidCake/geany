@@ -500,6 +500,12 @@ static void on_update_ui(GeanyEditor *editor, G_GNUC_UNUSED SCNotification *nt)
 	ScintillaObject *sci = editor->sci;
 	gint pos = sci_get_current_position(sci);
 
+	if (nt->updated & (SC_UPDATE_H_SCROLL | SC_UPDATE_V_SCROLL))
+	{
+		SSM(sci, SCI_CALLTIPCANCEL, 0, 0);
+		SSM(sci, SCI_AUTOCCANCEL, 0, 0);
+	}
+
 	/* since Scintilla 2.24, SCN_UPDATEUI is also sent on scrolling though we don't need to handle
 	 * this and so ignore every SCN_UPDATEUI events except for content and selection changes */
 	if (! (nt->updated & SC_UPDATE_CONTENT) && ! (nt->updated & SC_UPDATE_SELECTION))
@@ -1312,8 +1318,10 @@ static gboolean lexer_has_braces(ScintillaObject *sci)
 
 	switch (lexer)
 	{
+		case SCLEX_CIL:
 		case SCLEX_CPP:
 		case SCLEX_D:
+		case SCLEX_DART:
 		case SCLEX_HTML:	/* for PHP & JS */
 		case SCLEX_PHPSCRIPT:
 		case SCLEX_PASCAL:	/* for multiline comments? */
@@ -1323,6 +1331,7 @@ static gboolean lexer_has_braces(ScintillaObject *sci)
 		case SCLEX_R:
 		case SCLEX_RAKU:
 		case SCLEX_RUST:
+		case SCLEX_ZIG:
 			return TRUE;
 		default:
 			return FALSE;
@@ -3509,8 +3518,7 @@ static gboolean is_comment_char(gchar c, gint lexer)
 {
 	if ((c == '*' || c == '+') && lexer == SCLEX_D)
 		return TRUE;
-	else
-	if (c == '*')
+	else if (c == '*')
 		return TRUE;
 
 	return FALSE;
@@ -5140,6 +5148,8 @@ void editor_set_indentation_guides(GeanyEditor *editor)
 		case SCLEX_D:
 		case SCLEX_OCTAVE:
 		case SCLEX_RUST:
+		case SCLEX_ZIG:
+		case SCLEX_DART:
 			mode = SC_IV_LOOKBOTH;
 			break;
 

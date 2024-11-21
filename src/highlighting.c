@@ -1007,12 +1007,14 @@ void highlighting_init_styles(guint filetype_idx, GKeyFile *config, GKeyFile *co
 		init_styleset_case(BATCH);
 		init_styleset_case(C);
 		init_styleset_case(CAML);
+		init_styleset_case(CIL);
 		init_styleset_case(CMAKE);
 		init_styleset_case(COBOL);
 		init_styleset_case(COFFEESCRIPT);
 		init_styleset_case(CONF);
 		init_styleset_case(CSS);
 		init_styleset_case(D);
+		init_styleset_case(DART);
 		init_styleset_case(DIFF);
 		init_styleset_case(LISP);
 		init_styleset_case(ERLANG);
@@ -1034,6 +1036,7 @@ void highlighting_init_styles(guint filetype_idx, GKeyFile *config, GKeyFile *co
 		init_styleset_case(MAKE);
 		init_styleset_case(MATLAB);
 		init_styleset_case(MARKDOWN);
+		init_styleset_case(NIM);
 		init_styleset_case(NSIS);
 		init_styleset_case(OBJECTIVEC);
 		init_styleset_case(PASCAL);
@@ -1041,6 +1044,7 @@ void highlighting_init_styles(guint filetype_idx, GKeyFile *config, GKeyFile *co
 		init_styleset_case(PHP);
 		init_styleset_case(PO);
 		init_styleset_case(POWERSHELL);
+		init_styleset_case(PROLOG);
 		init_styleset_case(PYTHON);
 		init_styleset_case(R);
 		init_styleset_case(RAKU);
@@ -1056,6 +1060,7 @@ void highlighting_init_styles(guint filetype_idx, GKeyFile *config, GKeyFile *co
 		init_styleset_case(XML);
 		init_styleset_case(YAML);
 		init_styleset_case(ZEPHIR);
+		init_styleset_case(ZIG);
 		default:
 			if (ft->lexer_filetype)
 				geany_debug("Filetype %s has a recursive lexer_filetype %s set!",
@@ -1100,12 +1105,14 @@ void highlighting_set_styles(ScintillaObject *sci, GeanyFiletype *ft)
 		styleset_case(BATCH);
 		styleset_case(C);
 		styleset_case(CAML);
+		styleset_case(CIL);
 		styleset_case(CMAKE);
 		styleset_case(COBOL);
 		styleset_case(COFFEESCRIPT);
 		styleset_case(CONF);
 		styleset_case(CSS);
 		styleset_case(D);
+		styleset_case(DART);
 		styleset_case(DIFF);
 		styleset_case(LISP);
 		styleset_case(ERLANG);
@@ -1127,6 +1134,7 @@ void highlighting_set_styles(ScintillaObject *sci, GeanyFiletype *ft)
 		styleset_case(MAKE);
 		styleset_case(MARKDOWN);
 		styleset_case(MATLAB);
+		styleset_case(NIM);
 		styleset_case(NSIS);
 		styleset_case(OBJECTIVEC);
 		styleset_case(PASCAL);
@@ -1134,6 +1142,7 @@ void highlighting_set_styles(ScintillaObject *sci, GeanyFiletype *ft)
 		styleset_case(PHP);
 		styleset_case(PO);
 		styleset_case(POWERSHELL);
+		styleset_case(PROLOG);
 		styleset_case(PYTHON);
 		styleset_case(R);
 		styleset_case(RAKU);
@@ -1149,6 +1158,7 @@ void highlighting_set_styles(ScintillaObject *sci, GeanyFiletype *ft)
 		styleset_case(XML);
 		styleset_case(YAML);
 		styleset_case(ZEPHIR);
+		styleset_case(ZIG);
 		case GEANY_FILETYPES_NONE:
 		default:
 			styleset_default(sci, ft->id);
@@ -1579,6 +1589,10 @@ gboolean highlighting_is_string_style(gint lexer, gint style)
 				style == SCE_H_SGML_SIMPLESTRING ||
 				style == SCE_H_SINGLESTRING);
 
+		case SCLEX_CIL:
+			return (style == SCE_CIL_STRING ||
+				style == SCE_CIL_STRINGEOL);
+
 		case SCLEX_CMAKE:
 			return (style == SCE_CMAKE_STRINGDQ ||
 				style == SCE_CMAKE_STRINGLQ ||
@@ -1646,6 +1660,15 @@ gboolean highlighting_is_string_style(gint lexer, gint style)
 			return (style == SCE_POWERSHELL_STRING ||
 				style == SCE_POWERSHELL_CHARACTER);
 
+		case SCLEX_VISUALPROLOG:
+			return (style == SCE_VISUALPROLOG_STRING ||
+				style == SCE_VISUALPROLOG_STRING_QUOTE ||
+				style == SCE_VISUALPROLOG_STRING_ESCAPE ||
+				style == SCE_VISUALPROLOG_STRING_ESCAPE_ERROR ||
+				style == SCE_VISUALPROLOG_STRING_EOL ||
+				style == SCE_VISUALPROLOG_EMBEDDED ||
+				style == SCE_VISUALPROLOG_PLACEHOLDER);
+
 		case SCLEX_BATCH:
 		case SCLEX_DIFF:
 		case SCLEX_LATEX:
@@ -1659,6 +1682,29 @@ gboolean highlighting_is_string_style(gint lexer, gint style)
 
 		case SCLEX_AU3:
 			return (style == SCE_AU3_STRING);
+
+		case SCLEX_NIM:
+			return (style == SCE_NIM_STRING ||
+				style == SCE_NIM_CHARACTER ||
+				style == SCE_NIM_TRIPLE ||
+				style == SCE_NIM_TRIPLEDOUBLE ||
+				style == SCE_NIM_STRINGEOL);
+
+		case SCLEX_ZIG:
+			return (style == SCE_ZIG_STRING ||
+				style == SCE_ZIG_MULTISTRING ||
+				style == SCE_ZIG_CHARACTER ||
+				style == SCE_ZIG_ESCAPECHAR);
+
+		case SCLEX_DART:
+			return (style == SCE_DART_STRING_SQ ||
+				style == SCE_DART_STRING_DQ ||
+				style == SCE_DART_TRIPLE_STRING_SQ ||
+				style == SCE_DART_TRIPLE_STRING_DQ ||
+				style == SCE_DART_RAWSTRING_SQ ||
+				style == SCE_DART_RAWSTRING_DQ ||
+				style == SCE_DART_TRIPLE_RAWSTRING_SQ ||
+				style == SCE_DART_TRIPLE_RAWSTRING_DQ);
 	}
 	return FALSE;
 }
@@ -1804,6 +1850,11 @@ gboolean highlighting_is_comment_style(gint lexer, gint style)
 				style == SCE_HPHP_COMMENTLINE ||
 				style == SCE_H_SGML_COMMENT);
 
+		case SCLEX_CIL:
+			return (
+				style == SCE_CIL_COMMENT ||
+				style == SCE_CIL_COMMENTLINE);
+
 		case SCLEX_CMAKE:
 			return (style == SCE_CMAKE_COMMENT);
 
@@ -1894,6 +1945,29 @@ gboolean highlighting_is_comment_style(gint lexer, gint style)
 		case SCLEX_AU3:
 			return (style == SCE_AU3_COMMENT ||
 				style == SCE_AU3_COMMENTBLOCK);
+
+		case SCLEX_VISUALPROLOG:
+			return (style == SCE_VISUALPROLOG_COMMENT_BLOCK ||
+				style == SCE_VISUALPROLOG_COMMENT_LINE ||
+				style == SCE_VISUALPROLOG_COMMENT_KEY ||
+				style == SCE_VISUALPROLOG_COMMENT_KEY_ERROR);
+
+		case SCLEX_NIM:
+			return (style == SCE_NIM_COMMENT ||
+				style == SCE_NIM_COMMENTDOC ||
+				style == SCE_NIM_COMMENTLINE ||
+				style == SCE_NIM_COMMENTLINEDOC);
+
+		case SCLEX_ZIG:
+			return (style == SCE_ZIG_COMMENTLINE ||
+				style == SCE_ZIG_COMMENTLINEDOC ||
+				style == SCE_ZIG_COMMENTLINETOP);
+
+		case SCLEX_DART:
+			return (style == SCE_DART_COMMENTLINE ||
+				style == SCE_DART_COMMENTLINEDOC ||
+				style == SCE_DART_COMMENTBLOCK ||
+				style == SCE_DART_COMMENTBLOCKDOC);
 	}
 	return FALSE;
 }
