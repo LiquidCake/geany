@@ -296,7 +296,8 @@ static void backupcopy_document_save_cb(GObject *obj, GeanyDocument *doc, gpoint
 }
 
 
-static GeanyFiletype *get_doc_filetype(GeanyDocument *doc) {
+static GeanyFiletype *get_doc_filetype(GeanyDocument *doc)
+{
 	GeanyFiletype *ft = doc->file_type;
 
 	if (ft == NULL || ft->id == GEANY_FILETYPES_NONE)
@@ -414,8 +415,7 @@ static gchar* create_new_persistent_doc_file_name(GeanyDocument *doc)
 		}
 		else
 		{
-			if (strlen(extension_postfix))
-				g_free(extension_postfix);
+			g_free(extension_postfix);
 
 			return next_file_name;
 		}
@@ -502,7 +502,7 @@ static gint run_dialog_for_persistent_doc_tab_closing(const gchar *msg, const gc
 	gtk_message_dialog_format_secondary_text(GTK_MESSAGE_DIALOG(dialog), "%s", msg2);
 	gtk_dialog_add_button(GTK_DIALOG(dialog), GTK_STOCK_CANCEL, GTK_RESPONSE_CANCEL);
 
-	button = ui_button_new_with_image(GTK_STOCK_CLEAR, _("_Don't save"));
+	button = ui_button_new_with_image(GTK_STOCK_CLEAR, _("_Don't save (discard)"));
 	gtk_dialog_add_action_widget(GTK_DIALOG(dialog), button, GTK_RESPONSE_NO);
 	gtk_widget_show(button);
 
@@ -525,7 +525,7 @@ static void show_dialog_for_persistent_doc_tab_closing(
 	gint response;
 
 	msg = g_strdup_printf(_("Untitled document %s is not saved."), short_filename);
-	msg2 = _("Do you want to save it before closing?");
+	msg2 = _("Do you want to save it?");
 
 	response = run_dialog_for_persistent_doc_tab_closing(msg, msg2);
 	g_free(msg);
@@ -554,7 +554,7 @@ static void show_dialog_for_persistent_doc_tab_closing(
 		case GTK_RESPONSE_NO:
 			g_remove(doc->real_path);
 
-			msgwin_status_add(_("Untitled document file %s was deleted"), short_filename);
+			ui_set_statusbar(TRUE, _("Untitled document file %s was deleted"), short_filename);
 			break;
 
 		case GTK_RESPONSE_CANCEL:
@@ -600,7 +600,7 @@ static void persistent_doc_save_cb(GObject *obj, GeanyDocument *doc, gpointer us
 
 			g_free(locale_old_file_path);
 
-			ui_set_statusbar(TRUE, _("Untitled document file %s was deleted"), old_file_path_utf8);
+			msgwin_status_add(_("Untitled document file %s was deleted"), old_file_path_utf8);
 		}
 
 		plugin_set_document_data(geany_plugin, doc, "file-name-before-save-as", NULL); /* clear value */
@@ -949,9 +949,6 @@ void plugin_init(GeanyData *data)
 
 	if (enable_instantsave && enable_persistent_docs)
 	{
-		dialogs_show_msgbox(GTK_MESSAGE_ERROR,
-			_("Invalid config file state: multiple features of 'Persistent Untitled Documents' are enabled at once"));
-
 		enable_instantsave = FALSE;
 	}
 
@@ -1206,7 +1203,9 @@ static void configure_response_cb(GtkDialog *dialog, gint response, G_GNUC_UNUSE
 				dialogs_show_msgbox(GTK_MESSAGE_ERROR,
 						_("Persistent untitled document directory does not exist or is not writable."));
 			}
-		} else {
+		}
+		else
+		{
 			enable_persistent_docs = FALSE;
 			g_key_file_set_boolean(config, "saveactions", "enable_persistent_untitled_documents", FALSE);
 		}
@@ -1256,7 +1255,8 @@ static void radio_toggled_cb(GtkRadioButton *rb, gpointer data)
 	{
 		case NOTEBOOK_UNTITLEDDOC_RADIO_DISABLED:
 		{
-			if (enable) {
+			if (enable)
+			{
 				gtk_widget_set_sensitive(pref_widgets.instantsave_entry_dir, FALSE);
 
 				gtk_widget_set_sensitive(pref_widgets.persistent_doc_entry_dir, FALSE);
@@ -1268,7 +1268,8 @@ static void radio_toggled_cb(GtkRadioButton *rb, gpointer data)
 		}
 		case NOTEBOOK_UNTITLEDDOC_RADIO_INSTANTSAVE:
 		{
-			if (enable) {
+			if (enable)
+			{
 				gtk_widget_set_sensitive(pref_widgets.instantsave_entry_dir, TRUE);
 
 				gtk_widget_set_sensitive(pref_widgets.persistent_doc_entry_dir, FALSE);
@@ -1280,7 +1281,8 @@ static void radio_toggled_cb(GtkRadioButton *rb, gpointer data)
 		}
 		case NOTEBOOK_UNTITLEDDOC_RADIO_PERSISTENT:
 		{
-			if (enable) {
+			if (enable)
+			{
 				gtk_widget_set_sensitive(pref_widgets.instantsave_entry_dir, FALSE);
 
 				gtk_widget_set_sensitive(pref_widgets.persistent_doc_entry_dir, TRUE);
@@ -1469,7 +1471,7 @@ GtkWidget *plugin_configure(GtkDialog *dialog)
 		/* Instantsave */
 
 		instantsave_radio = gtk_radio_button_new_with_mnemonic_from_widget(
-			GTK_RADIO_BUTTON(disabled_radio), _("Instant Save"));
+			GTK_RADIO_BUTTON(disabled_radio), _("Instant Save After Creation"));
 		pref_widgets.untitled_doc_instantsave_radio = instantsave_radio;
 		gtk_label_set_mnemonic_widget(GTK_LABEL(label), instantsave_radio);
 		gtk_button_set_focus_on_click(GTK_BUTTON(instantsave_radio), FALSE);
@@ -1573,7 +1575,7 @@ GtkWidget *plugin_configure(GtkDialog *dialog)
 
 		/* Common */
 
-		label = gtk_label_new_with_mnemonic(_("Default _filetype to use for new files:"));
+		label = gtk_label_new_with_mnemonic(_("Default _filetype to use for untitled documents:"));
 		gtk_misc_set_alignment(GTK_MISC(label), 0, 0.5);
 		gtk_widget_set_margin_top(label, 15);
 		gtk_box_pack_start(GTK_BOX(inner_vbox), label, FALSE, FALSE, 0);
