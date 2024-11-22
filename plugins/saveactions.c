@@ -969,7 +969,7 @@ void plugin_init(GeanyData *data)
 	untitled_doc_default_ft = utils_get_setting_string(config, "untitled_document_save", "default_ft",
 		filetypes[GEANY_FILETYPES_NONE]->name);
 
-	tmp = utils_get_setting_string(config, "untitled_document_save", "instantsave_target_dir", NULL);
+	tmp = utils_get_setting_string(config, "instantsave", "target_dir", NULL);
 	store_target_directory(tmp, &instantsave_target_dir);
 	g_free(tmp);
 
@@ -1088,7 +1088,8 @@ static void configure_response_cb(GtkDialog *dialog, gint response, G_GNUC_UNUSE
 	if (response == GTK_RESPONSE_OK || response == GTK_RESPONSE_APPLY)
 	{
 		GKeyFile *config = g_key_file_new();
-		const gchar *backupcopy_text_dir, *instantsave_text_dir, *persistent_docs_text_dir, *text_time;
+		const gchar *backupcopy_text_dir, *instantsave_text_dir, *text_time;
+		gchar *persistent_docs_text_dir;
 
 		enable_autosave = gtk_toggle_button_get_active(
 			GTK_TOGGLE_BUTTON(pref_widgets.checkbox_enable_autosave));
@@ -1119,7 +1120,9 @@ static void configure_response_cb(GtkDialog *dialog, gint response, G_GNUC_UNUSE
 
 		persistent_docs_updater_interval_ms = gtk_spin_button_get_value_as_int(
 			GTK_SPIN_BUTTON(pref_widgets.persistent_doc_interval_spin));
-		persistent_docs_text_dir = gtk_entry_get_text(GTK_ENTRY(pref_widgets.persistent_doc_entry_dir));
+		persistent_docs_text_dir = g_strdup(
+			gtk_entry_get_text(GTK_ENTRY(pref_widgets.persistent_doc_entry_dir))
+		);
 
 		g_key_file_load_from_file(config, config_file, G_KEY_FILE_NONE, NULL);
 
@@ -1156,12 +1159,12 @@ static void configure_response_cb(GtkDialog *dialog, gint response, G_GNUC_UNUSE
 		{
 			if (EMPTY(instantsave_text_dir))
 			{
-				g_key_file_set_string(config, "untitled_document_save", "instantsave_target_dir", "");
+				g_key_file_set_string(config, "instantsave", "target_dir", "");
 				SETPTR(instantsave_target_dir, NULL);
 			}
 			else if (store_target_directory(instantsave_text_dir, &instantsave_target_dir))
 			{
-				g_key_file_set_string(config, "untitled_document_save", "instantsave_target_dir", instantsave_target_dir);
+				g_key_file_set_string(config, "instantsave", "target_dir", instantsave_target_dir);
 			}
 			else
 			{
@@ -1178,14 +1181,10 @@ static void configure_response_cb(GtkDialog *dialog, gint response, G_GNUC_UNUSE
 			if (!EMPTY(persistent_docs_text_dir)
 					&& g_str_has_suffix(persistent_docs_text_dir, G_DIR_SEPARATOR_S))
 			{
-				/* If target dir path ends with dir separator - we consider it invalid */
-				g_signal_stop_emission_by_name(dialog, "response");
-
-				dialogs_show_msgbox(GTK_MESSAGE_ERROR,
-						_("Please remove path separator (%s) from persistent untitled documents directory path"),
-							G_DIR_SEPARATOR_S);
+				persistent_docs_text_dir[strlen(persistent_docs_text_dir) - 1] = '\0';
 			}
-			else if (!EMPTY(persistent_docs_text_dir) && store_target_directory(
+
+			if (!EMPTY(persistent_docs_text_dir) && store_target_directory(
 					persistent_docs_text_dir, &persistent_docs_target_dir))
 			{
 				/* If target dir is valid - we save both itself and "enabled" feature toggle into config file */
@@ -1218,6 +1217,7 @@ static void configure_response_cb(GtkDialog *dialog, gint response, G_GNUC_UNUSE
 		write_config_file_updates(config);
 
 		g_key_file_free(config);
+		g_free(persistent_docs_text_dir);
 	}
 }
 
