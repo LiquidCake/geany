@@ -947,6 +947,14 @@ void plugin_init(GeanyData *data)
 	enable_persistent_docs = utils_get_setting_boolean(
 		config, "saveactions", "enable_persistent_untitled_documents", FALSE);
 
+	if (enable_instantsave && enable_persistent_docs)
+	{
+		dialogs_show_msgbox(GTK_MESSAGE_ERROR,
+			_("Invalid config file state: multiple features of 'Persistent Untitled Documents' are enabled at once"));
+
+		enable_instantsave = FALSE;
+	}
+
 	autosave_src_id = 0; /* mark as invalid */
 	autosave_interval = utils_get_setting_integer(config, "autosave", "interval", 300);
 	autosave_print_msg = utils_get_setting_boolean(config, "autosave", "print_messages", FALSE);
