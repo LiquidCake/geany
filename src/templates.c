@@ -225,7 +225,7 @@ on_new_with_file_template(GtkMenuItem *menuitem, G_GNUC_UNUSED gpointer user_dat
 	if (template)
 	{
 		/* line endings will be converted */
-		document_new_file(new_filename, ft, template);
+		document_new_file_with_creation_type(new_filename, ft, template, DOCUMENT_CREATION_TYPE_TEMPLATE);
 	}
 	else
 	{

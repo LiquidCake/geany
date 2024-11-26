@@ -807,19 +807,8 @@ GeanyDocument *document_new_file_if_non_open(void)
 }
 
 
-/**
- *  Creates a new document.
- *  Line endings in @a text will be converted to the default setting.
- *  Afterwards, the @c "document-new" signal is emitted for plugins.
- *
- *  @param utf8_filename @nullable The file name in UTF-8 encoding, or @c NULL to open a file as "untitled".
- *  @param ft @nullable The filetype to set or @c NULL to detect it from @a filename if not @c NULL.
- *  @param text @nullable The initial content of the file (in UTF-8 encoding), or @c NULL.
- *
- *  @return @transfer{none} The new document.
- **/
-GEANY_API_SYMBOL
-GeanyDocument *document_new_file(const gchar *utf8_filename, GeanyFiletype *ft, const gchar *text)
+static GeanyDocument *document_new_file_create(const gchar *utf8_filename, GeanyFiletype *ft, const gchar *text,
+		gint document_creation_type)
 {
 	GeanyDocument *doc;
 
@@ -837,11 +826,11 @@ GeanyDocument *document_new_file(const gchar *utf8_filename, GeanyFiletype *ft, 
 	sci_set_undo_collection(doc->editor->sci, FALSE); /* avoid creation of an undo action */
 	if (text)
 	{
-		GString *template = g_string_new(text);
-		utils_ensure_same_eol_characters(template, file_prefs.default_eol_character);
+		GString *text_wr = g_string_new(text);
+		utils_ensure_same_eol_characters(text_wr, file_prefs.default_eol_character);
 
-		sci_set_text(doc->editor->sci, template->str);
-		g_string_free(template, TRUE);
+		sci_set_text(doc->editor->sci, text_wr->str);
+		g_string_free(text_wr, TRUE);
 	}
 	else
 		sci_clear_all(doc->editor->sci);
@@ -881,12 +870,41 @@ GeanyDocument *document_new_file(const gchar *utf8_filename, GeanyFiletype *ft, 
 	/* "the" SCI signal (connect after initial setup(i.e. adding text)) */
 	g_signal_connect(doc->editor->sci, "sci-notify", G_CALLBACK(editor_sci_notify_cb), doc->editor);
 
-	g_signal_emit_by_name(geany_object, "document-new", doc);
+	g_signal_emit_by_name(geany_object, "document-new", document_creation_type, doc);
 
 	msgwin_status_add(_("New file \"%s\" opened."),
 		DOC_FILENAME(doc));
 
 	return doc;
+}
+
+
+/**
+ *  Creates a new document.
+ *  Line endings in @a text will be converted to the default setting.
+ *  Afterwards, the @c "document-new" signal is emitted for plugins.
+ *
+ *  @param utf8_filename @nullable The file name in UTF-8 encoding, or @c NULL to open a file as "untitled".
+ *  @param ft @nullable The filetype to set or @c NULL to detect it from @a filename if not @c NULL.
+ *  @param text @nullable The initial content of the file (in UTF-8 encoding), or @c NULL.
+ *
+ *  @return @transfer{none} The new document.
+ **/
+GEANY_API_SYMBOL
+GeanyDocument *document_new_file(const gchar *utf8_filename, GeanyFiletype *ft, const gchar *text)
+{
+	return document_new_file_create(utf8_filename, ft, text, DOCUMENT_CREATION_TYPE_DEFAULT);
+}
+
+
+/**
+ *  Same as document_new_file() but includes document creation type param (e.g. it is created using template)
+ **/
+GEANY_API_SYMBOL
+GeanyDocument *document_new_file_with_creation_type(const gchar *utf8_filename, GeanyFiletype *ft,
+		const gchar *text, gint document_creation_type)
+{
+	return document_new_file_create(utf8_filename, ft, text, document_creation_type);
 }
 
 

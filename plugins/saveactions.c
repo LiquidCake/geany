@@ -311,42 +311,39 @@ static GeanyFiletype *get_doc_filetype(GeanyDocument *doc)
 
 static void instantsave_document_new_cb(GObject *obj, GeanyDocument *doc, gpointer user_data)
 {
-	if (doc->file_name == NULL)
+	const gchar *directory;
+	gchar *new_filename;
+	gint fd;
+	GeanyFiletype *ft = get_doc_filetype(doc);
+
+	/* construct filename */
+	directory = !EMPTY(instantsave_target_dir) ? instantsave_target_dir : g_get_tmp_dir();
+	new_filename = g_build_filename(directory, "gis_XXXXXX", NULL);
+	if (ft != NULL && !EMPTY(ft->extension))
+		SETPTR(new_filename, g_strconcat(new_filename, ".", ft->extension, NULL));
+
+	/* create new file */
+	fd = g_mkstemp(new_filename);
+	if (fd == -1)
 	{
-		const gchar *directory;
-		gchar *new_filename;
-		gint fd;
-		GeanyFiletype *ft = get_doc_filetype(doc);
-
-		/* construct filename */
-		directory = !EMPTY(instantsave_target_dir) ? instantsave_target_dir : g_get_tmp_dir();
-		new_filename = g_build_filename(directory, "gis_XXXXXX", NULL);
-		if (ft != NULL && !EMPTY(ft->extension))
-			SETPTR(new_filename, g_strconcat(new_filename, ".", ft->extension, NULL));
-
-		/* create new file */
-		fd = g_mkstemp(new_filename);
-		if (fd == -1)
-		{
-			gchar *message = g_strdup_printf(
-				_("Instant Save filename could not be generated (%s)."), g_strerror(errno));
-			ui_set_statusbar(TRUE, "%s", message);
-			g_warning("%s", message);
-			g_free(message);
-			g_free(new_filename);
-			return;
-		}
-
-		close(fd); /* close the returned file descriptor as we only need the filename */
-
-		doc->file_name = new_filename;
-
-		if (ft != NULL && ft->id == GEANY_FILETYPES_NONE)
-			document_set_filetype(doc, filetypes_lookup_by_name(untitled_doc_default_ft));
-
-		/* force saving the file to enable all the related actions(tab name, filetype, etc.) */
-		document_save_file(doc, TRUE);
+		gchar *message = g_strdup_printf(
+			_("Instant Save filename could not be generated (%s)."), g_strerror(errno));
+		ui_set_statusbar(TRUE, "%s", message);
+		g_warning("%s", message);
+		g_free(message);
+		g_free(new_filename);
+		return;
 	}
+
+	close(fd); /* close the returned file descriptor as we only need the filename */
+
+	doc->file_name = new_filename;
+
+	if (ft != NULL && ft->id == GEANY_FILETYPES_NONE)
+		document_set_filetype(doc, filetypes_lookup_by_name(untitled_doc_default_ft));
+
+	/* force saving the file to enable all the related actions(tab name, filetype, etc.) */
+	document_save_file(doc, TRUE);
 }
 
 
@@ -429,37 +426,34 @@ static gchar* create_new_persistent_doc_file_name(GeanyDocument *doc)
 
 static void persistent_doc_new_cb(GObject *obj, GeanyDocument *doc, gpointer user_data)
 {
-	if (doc->file_name == NULL)
+	gchar *files_dir_utf8, *new_file_name_utf8, *new_file_path_utf8;
+
+	if (EMPTY(persistent_docs_target_dir))
 	{
-		gchar *files_dir_utf8, *new_file_name_utf8, *new_file_path_utf8;
-
-		if (EMPTY(persistent_docs_target_dir))
-		{
-			dialogs_show_msgbox(GTK_MESSAGE_ERROR,
-				_("Persistent untitled document directory does not exist or is not writable."));
-			return;
-		}
-
-		new_file_name_utf8 = create_new_persistent_doc_file_name(doc);
-
-		document_set_filetype(doc, filetypes_lookup_by_name(untitled_doc_default_ft));
-
-		if (new_file_name_utf8 == NULL)
-		{
-			return;
-		}
-
-		files_dir_utf8 = utils_get_utf8_from_locale(persistent_docs_target_dir);
-
-		new_file_path_utf8 = g_strconcat(files_dir_utf8,
-			G_DIR_SEPARATOR_S, new_file_name_utf8, NULL);
-
-		document_save_file_as(doc, new_file_path_utf8);
-
-		g_free(new_file_name_utf8);
-		g_free(files_dir_utf8);
-		g_free(new_file_path_utf8);
+		dialogs_show_msgbox(GTK_MESSAGE_ERROR,
+			_("Persistent untitled document directory does not exist or is not writable."));
+		return;
 	}
+
+	new_file_name_utf8 = create_new_persistent_doc_file_name(doc);
+
+	document_set_filetype(doc, filetypes_lookup_by_name(untitled_doc_default_ft));
+
+	if (new_file_name_utf8 == NULL)
+	{
+		return;
+	}
+
+	files_dir_utf8 = utils_get_utf8_from_locale(persistent_docs_target_dir);
+
+	new_file_path_utf8 = g_strconcat(files_dir_utf8,
+		G_DIR_SEPARATOR_S, new_file_name_utf8, NULL);
+
+	document_save_file_as(doc, new_file_path_utf8);
+
+	g_free(new_file_name_utf8);
+	g_free(files_dir_utf8);
+	g_free(new_file_path_utf8);
 }
 
 
@@ -735,13 +729,16 @@ static void on_document_save(GObject *obj, GeanyDocument *doc, gpointer user_dat
 }
 
 
-static void on_document_new(GObject *obj, GeanyDocument *doc, gpointer user_data)
+static void on_document_new(GObject *obj, gint document_creation_type, GeanyDocument *doc, gpointer user_data)
 {
-	if (enable_instantsave)
-		instantsave_document_new_cb(obj, doc, user_data);
+	if (doc->file_name == NULL || document_creation_type == DOCUMENT_CREATION_TYPE_TEMPLATE)
+	{
+		if (enable_instantsave)
+			instantsave_document_new_cb(obj, doc, user_data);
 
-	if (enable_persistent_docs)
-		persistent_doc_new_cb(obj, doc, user_data);
+		if (enable_persistent_docs)
+			persistent_doc_new_cb(obj, doc, user_data);
+	}
 }
 
 

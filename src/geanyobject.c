@@ -81,9 +81,9 @@ static void create_signals(GObjectClass *g_object_class)
 		"document-new",
 		G_OBJECT_CLASS_TYPE (g_object_class),
 		G_SIGNAL_RUN_FIRST,
-		0, NULL, NULL, g_cclosure_marshal_VOID__BOXED,
-		G_TYPE_NONE, 1,
-		GEANY_TYPE_DOCUMENT);
+		0, NULL, NULL, NULL,
+		G_TYPE_NONE, 2,
+		G_TYPE_INT, GEANY_TYPE_DOCUMENT);
 	geany_object_signals[GCB_DOCUMENT_OPEN] = g_signal_new (
 		"document-open",
 		G_OBJECT_CLASS_TYPE (g_object_class),

@@ -74,6 +74,12 @@ GeanyFilePrefs;
 #define GEANY_TYPE_DOCUMENT (document_get_type())
 GType document_get_type (void);
 
+enum
+{
+	DOCUMENT_CREATION_TYPE_DEFAULT = 0,
+	DOCUMENT_CREATION_TYPE_TEMPLATE
+};
+
 /**
  *  Structure for representing an open tab with all its properties.
  **/
@@ -164,6 +170,9 @@ GeanyDocument;
 
 
 GeanyDocument* document_new_file(const gchar *filename, GeanyFiletype *ft, const gchar *text);
+
+GeanyDocument *document_new_file_with_creation_type(const gchar *utf8_filename, GeanyFiletype *ft,
+		const gchar *text, gint document_creation_type);
 
 GeanyDocument *document_get_current(void);
 

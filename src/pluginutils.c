@@ -720,6 +720,12 @@ void plugin_set_document_data(struct GeanyPlugin *plugin, struct GeanyDocument *
  *         g_strdup("some-data"), g_free);
  * }
  *
+ * void on_document_new(GObject *unused, gint document_creation_type, GeanyDocument *doc, GeanyPlugin *plugin)
+ * {
+ *     plugin_set_document_data_full(plugin, doc, "my-data",
+ *         g_strdup("some-data"), g_free);
+ * }
+ *
  * void on_document_save(GObject *unused, GeanyDocument *doc, GeanyPlugin *plugin)
  * {
  *     const gchar *some_data = plugin_get_document_data(plugin, doc, "my-data");
@@ -731,7 +737,7 @@ void plugin_set_document_data(struct GeanyPlugin *plugin, struct GeanyDocument *
  *     plugin_signal_connect(plugin, NULL, "document-open", TRUE,
  *         G_CALLBACK(on_document_open), plugin);
  *     plugin_signal_connect(plugin, NULL, "document-new", TRUE,
- *         G_CALLBACK(on_document_open), plugin);
+ *         G_CALLBACK(on_document_new), plugin);
  *     plugin_signal_connect(plugin, NULL, "document-save", TRUE,
  *         G_CALLBACK(on_document_save), plugin);
  *     return TRUE;
